@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (
     QLabel, QFrame, QComboBox, QSlider,
 )
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QCursor
 import cv2
 import numpy as np
 
@@ -107,6 +106,14 @@ class MainWindow(QMainWindow):
         self.brush_size_label = QLabel("30")
         self.brush_size_label.setFixedWidth(25)
         top_bar.addWidget(self.brush_size_label)
+
+        top_bar.addStretch()
+
+        # Reset zoom button
+        self.reset_zoom_btn = QPushButton("Fit")
+        self.reset_zoom_btn.setToolTip("Reset zoom to fit image (scroll to zoom, drag to pan)")
+        self.reset_zoom_btn.clicked.connect(self._reset_zoom)
+        top_bar.addWidget(self.reset_zoom_btn)
 
         layout.addLayout(top_bar)
 
@@ -321,12 +328,8 @@ class MainWindow(QMainWindow):
         """Toggle brush painting mode."""
         self.brush_mode = checked
         self.brush_btn.setText("Brush: On" if checked else "Brush: Off")
-        if checked:
-            self.result_viewer.setCursor(Qt.CrossCursor)
-            self.result_viewer.set_brush_mode(True, self.brush_size)
-        else:
-            self.result_viewer.setCursor(Qt.ArrowCursor)
-            self.result_viewer.set_brush_mode(False, 0)
+        # Cursor handling is now inside ImageViewer
+        self.result_viewer.set_brush_mode(checked, self.brush_size)
 
     def _on_brush_size_changed(self, value: int):
         """Update brush size."""
@@ -383,3 +386,8 @@ class MainWindow(QMainWindow):
         """Called from result_viewer when painting occurs."""
         self._apply_brush_stroke(img_x, img_y)
         self.result_viewer.load_array(self.edited_result)
+
+    def _reset_zoom(self):
+        """Reset zoom on both viewers."""
+        self.source_viewer.reset_zoom()
+        self.result_viewer.reset_zoom()
