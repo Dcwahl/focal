@@ -14,6 +14,12 @@ A straightforward focus stacking tool that does one thing well.
 - Sub-pixel registration
 - Auto-crop to common area
 
+### Retouching (The Differentiator)
+- Source-frame brushing: paint pixels from any source image onto result
+- Flash-compare: toggle between source and result for quick comparison
+- Substack editing: stack subset of frames, use result as brush source
+- Undo/redo stack for non-destructive editing
+
 ### Workflow
 - Batch processing (multiple stacks in queue)
 - Metadata preservation (EXIF from source images)

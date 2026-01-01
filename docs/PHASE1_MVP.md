@@ -38,7 +38,8 @@ Minimal viable focus stacking app. Get the full loop working before adding featu
 - Parameter tuning
 - Alignment
 - Batch processing
-- Dehalo post-processing (add in phase 2)
+- Dehalo post-processing
+- Retouching (see Phase 2)
 
 ## Definition of Done
 - Can open a folder of images
