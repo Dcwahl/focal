@@ -14,8 +14,17 @@ dependencies = [
     "Pillow>=10.0.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
 [project.scripts]
 focal = "focal.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/focal"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
