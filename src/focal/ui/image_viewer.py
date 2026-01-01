@@ -65,28 +65,37 @@ class ImageViewer(QGraphicsView):
             self._set_pixmap(pixmap)
             self._image_size = (pixmap.width(), pixmap.height())
 
-    def load_array(self, array: np.ndarray):
-        """Load a numpy array (BGR, uint8) as the display image."""
+    def load_array(self, array: np.ndarray, preserve_zoom: bool = False):
+        """Load a numpy array (BGR, uint8) as the display image.
+
+        Args:
+            array: Image array in BGR format
+            preserve_zoom: If True, maintains current zoom/pan state (for brush updates)
+        """
         # Convert BGR to RGB for Qt
         rgb = array[:, :, ::-1].copy()
         h, w, ch = rgb.shape
         bytes_per_line = ch * w
         qimg = QImage(rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(qimg)
-        self._set_pixmap(pixmap)
+        self._set_pixmap(pixmap, fit=not preserve_zoom)
         self._image_size = (w, h)
 
-    def _set_pixmap(self, pixmap: QPixmap):
+    def _set_pixmap(self, pixmap: QPixmap, fit: bool = True):
         """Set the displayed pixmap."""
         self._current_pixmap = pixmap
 
         if self._pixmap_item is None:
             self._pixmap_item = self._scene.addPixmap(pixmap)
+            self._scene.setSceneRect(QRectF(pixmap.rect()))
+            if fit:
+                self._fit_in_view()
         else:
             self._pixmap_item.setPixmap(pixmap)
-
-        self._scene.setSceneRect(QRectF(pixmap.rect()))
-        self._fit_in_view()
+            # Only update scene rect and fit if image size changed
+            if fit:
+                self._scene.setSceneRect(QRectF(pixmap.rect()))
+                self._fit_in_view()
 
     def _fit_in_view(self):
         """Fit image to view while maintaining aspect ratio."""

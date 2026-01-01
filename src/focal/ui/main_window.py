@@ -385,7 +385,7 @@ class MainWindow(QMainWindow):
     def on_brush_paint(self, img_x: int, img_y: int):
         """Called from result_viewer when painting occurs."""
         self._apply_brush_stroke(img_x, img_y)
-        self.result_viewer.load_array(self.edited_result)
+        self.result_viewer.load_array(self.edited_result, preserve_zoom=True)
 
     def _reset_zoom(self):
         """Reset zoom on both viewers."""
