@@ -15,6 +15,8 @@ class ImageViewer(QGraphicsView):
 
     # Signal emitted when brush painting occurs: (img_x, img_y)
     brush_paint = Signal(int, int)
+    # Signal emitted when zoom level changes: (zoom_factor as percentage, e.g. 100 = 100%)
+    zoom_changed = Signal(int)
 
     def __init__(self):
         super().__init__()
@@ -58,11 +60,16 @@ class ImageViewer(QGraphicsView):
         # Track mouse for brush cursor
         self.setMouseTracking(True)
 
-    def load_image(self, path: Path):
-        """Load image from file path."""
+    def load_image(self, path: Path, preserve_zoom: bool = False):
+        """Load image from file path.
+
+        Args:
+            path: Path to image file
+            preserve_zoom: If True, maintains current zoom/pan state
+        """
         pixmap = QPixmap(str(path))
         if not pixmap.isNull():
-            self._set_pixmap(pixmap)
+            self._set_pixmap(pixmap, fit=not preserve_zoom)
             self._image_size = (pixmap.width(), pixmap.height())
 
     def load_array(self, array: np.ndarray, preserve_zoom: bool = False):
@@ -192,6 +199,7 @@ class ImageViewer(QGraphicsView):
             if self._min_zoom <= new_zoom <= self._max_zoom:
                 self.scale(factor, factor)
                 self._zoom_factor = new_zoom
+                self.zoom_changed.emit(int(self._zoom_factor * 100))
         else:
             # Could use scroll to change brush size here
             super().wheelEvent(event)
@@ -293,3 +301,34 @@ class ImageViewer(QGraphicsView):
         """Reset to fit-in-view zoom level."""
         self.resetTransform()
         self._fit_in_view()
+        self.zoom_changed.emit(int(self._zoom_factor * 100))
+
+    def get_zoom_percent(self) -> int:
+        """Get current zoom level as percentage."""
+        return int(self._zoom_factor * 100)
+
+    def set_zoom_percent(self, percent: int):
+        """Set zoom level from percentage (100 = fit level)."""
+        if self._pixmap_item is None:
+            return
+
+        target_factor = percent / 100.0
+        target_factor = max(self._min_zoom, min(self._max_zoom, target_factor))
+
+        # Calculate scale needed to go from current to target
+        current = self.transform().m11()
+        if current > 0:
+            scale = target_factor / current
+            self.scale(scale, scale)
+            self._zoom_factor = target_factor
+            self.zoom_changed.emit(int(self._zoom_factor * 100))
+
+    def zoom_in(self):
+        """Zoom in by a fixed factor."""
+        new_percent = min(500, self.get_zoom_percent() + 25)
+        self.set_zoom_percent(new_percent)
+
+    def zoom_out(self):
+        """Zoom out by a fixed factor."""
+        new_percent = max(10, self.get_zoom_percent() - 25)
+        self.set_zoom_percent(new_percent)

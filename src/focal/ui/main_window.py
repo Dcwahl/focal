@@ -109,9 +109,23 @@ class MainWindow(QMainWindow):
 
         top_bar.addStretch()
 
+        # Zoom controls
+        zoom_label = QLabel("Zoom:")
+        top_bar.addWidget(zoom_label)
+        self.zoom_slider = QSlider(Qt.Horizontal)
+        self.zoom_slider.setMinimum(10)   # 10% zoom
+        self.zoom_slider.setMaximum(500)  # 500% zoom
+        self.zoom_slider.setValue(100)    # 100% = fit
+        self.zoom_slider.setFixedWidth(100)
+        self.zoom_slider.valueChanged.connect(self._on_zoom_slider_changed)
+        top_bar.addWidget(self.zoom_slider)
+        self.zoom_label = QLabel("100%")
+        self.zoom_label.setFixedWidth(40)
+        top_bar.addWidget(self.zoom_label)
+
         # Reset zoom button
         self.reset_zoom_btn = QPushButton("Fit")
-        self.reset_zoom_btn.setToolTip("Reset zoom to fit image (scroll to zoom, drag to pan)")
+        self.reset_zoom_btn.setToolTip("Reset zoom to fit image (Ctrl+0, scroll to zoom, drag to pan)")
         self.reset_zoom_btn.clicked.connect(self._reset_zoom)
         top_bar.addWidget(self.reset_zoom_btn)
 
@@ -129,6 +143,7 @@ class MainWindow(QMainWindow):
         source_label.setStyleSheet("font-weight: bold; padding: 4px;")
         source_layout.addWidget(source_label)
         self.source_viewer = ImageViewer()
+        self.source_viewer.zoom_changed.connect(self._on_zoom_changed)
         source_layout.addWidget(self.source_viewer, stretch=1)
         splitter.addWidget(source_container)
 
@@ -142,6 +157,7 @@ class MainWindow(QMainWindow):
         result_layout.addWidget(result_label)
         self.result_viewer = ImageViewer()
         self.result_viewer.brush_paint.connect(self.on_brush_paint)
+        self.result_viewer.zoom_changed.connect(self._on_zoom_changed)
         result_layout.addWidget(self.result_viewer, stretch=1)
         splitter.addWidget(result_container)
 
@@ -307,12 +323,24 @@ class MainWindow(QMainWindow):
             cv2.imwrite(path, self.edited_result)
 
     def keyPressEvent(self, event):
-        """Handle key press - S for flash compare."""
+        """Handle key press - S for flash compare, Ctrl+/- for zoom."""
         if event.key() == Qt.Key_S and not event.isAutoRepeat():
             if self.result_image is not None and self.images:
                 self._flash_active = True
-                # Show current source in the result panel
-                self.result_viewer.load_image(self.images[self.current_source_index])
+                # Show current source in the result panel, preserving zoom
+                self.result_viewer.load_image(self.images[self.current_source_index], preserve_zoom=True)
+        elif event.modifiers() == Qt.ControlModifier:
+            if event.key() in (Qt.Key_Plus, Qt.Key_Equal):
+                # Ctrl++ or Ctrl+= (= is on same key as +)
+                self.source_viewer.zoom_in()
+                self.result_viewer.zoom_in()
+            elif event.key() == Qt.Key_Minus:
+                # Ctrl+-
+                self.source_viewer.zoom_out()
+                self.result_viewer.zoom_out()
+            elif event.key() == Qt.Key_0:
+                # Ctrl+0 - reset zoom
+                self._reset_zoom()
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
@@ -320,8 +348,8 @@ class MainWindow(QMainWindow):
         if event.key() == Qt.Key_S and not event.isAutoRepeat():
             if self._flash_active and self.edited_result is not None:
                 self._flash_active = False
-                # Restore result view
-                self.result_viewer.load_array(self.edited_result)
+                # Restore result view, preserving zoom
+                self.result_viewer.load_array(self.edited_result, preserve_zoom=True)
         super().keyReleaseEvent(event)
 
     def _toggle_brush_mode(self, checked: bool):
@@ -391,3 +419,16 @@ class MainWindow(QMainWindow):
         """Reset zoom on both viewers."""
         self.source_viewer.reset_zoom()
         self.result_viewer.reset_zoom()
+
+    def _on_zoom_changed(self, percent: int):
+        """Update zoom slider and label when zoom changes (from either viewer)."""
+        self.zoom_slider.blockSignals(True)
+        self.zoom_slider.setValue(percent)
+        self.zoom_slider.blockSignals(False)
+        self.zoom_label.setText(f"{percent}%")
+
+    def _on_zoom_slider_changed(self, value: int):
+        """Apply zoom slider value to both viewers."""
+        self.source_viewer.set_zoom_percent(value)
+        self.result_viewer.set_zoom_percent(value)
+        self.zoom_label.setText(f"{value}%")
