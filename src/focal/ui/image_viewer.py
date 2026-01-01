@@ -15,6 +15,9 @@ class ImageViewer(QGraphicsView):
 
     # Signal emitted when brush painting occurs: (img_x, img_y)
     brush_paint = Signal(int, int)
+    # Signals for stroke begin/end (for undo tracking)
+    brush_stroke_started = Signal()
+    brush_stroke_finished = Signal()
     # Signal emitted when zoom level changes: (zoom_factor as percentage, e.g. 100 = 100%)
     zoom_changed = Signal(int)
 
@@ -215,6 +218,7 @@ class ImageViewer(QGraphicsView):
             if self._brush_mode:
                 # Start painting
                 self._painting = True
+                self.brush_stroke_started.emit()
                 scene_pos = self.mapToScene(event.pos())
                 coords = self._scene_to_image_coords(scene_pos)
                 if coords:
@@ -265,6 +269,7 @@ class ImageViewer(QGraphicsView):
         elif event.button() == Qt.LeftButton:
             if self._painting:
                 self._painting = False
+                self.brush_stroke_finished.emit()
             else:
                 self._panning = False
                 self._pan_start = None

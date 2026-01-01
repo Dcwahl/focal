@@ -4,8 +4,9 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QProgressBar, QFileDialog, QSplitter, QMessageBox,
-    QLabel, QFrame, QComboBox, QSlider,
+    QLabel, QFrame, QSlider, QShortcut,
 )
+from PySide6.QtGui import QKeySequence
 from PySide6.QtCore import Qt, QThread, Signal
 import cv2
 import numpy as np
@@ -13,6 +14,16 @@ import numpy as np
 from focal.ui.image_list import ImageList
 from focal.ui.image_viewer import ImageViewer
 from focal.core.stacker import FocusStacker
+
+
+class BrushStroke:
+    """Represents a single brush stroke for undo/redo."""
+    def __init__(self, points: list[tuple[int, int]], source_index: int, brush_size: int):
+        self.points = points  # List of (x, y) image coordinates
+        self.source_index = source_index
+        self.brush_size = brush_size
+        # Store the original pixels before this stroke was applied
+        self.original_pixels: dict[tuple[int, int], np.ndarray] = {}
 
 
 class StackWorker(QThread):
@@ -57,7 +68,13 @@ class MainWindow(QMainWindow):
         self.brush_size: int = 30
         self._painting: bool = False
 
+        # Undo/redo stacks
+        self._undo_stack: list[BrushStroke] = []
+        self._redo_stack: list[BrushStroke] = []
+        self._current_stroke: BrushStroke | None = None
+
         self._setup_ui()
+        self._setup_shortcuts()
 
     def _setup_ui(self):
         central = QWidget()
@@ -71,14 +88,6 @@ class MainWindow(QMainWindow):
         top_bar.addWidget(self.open_btn)
 
         top_bar.addStretch()
-
-        # Source frame selector
-        source_selector_label = QLabel("Source frame:")
-        top_bar.addWidget(source_selector_label)
-        self.source_selector = QComboBox()
-        self.source_selector.setMinimumWidth(150)
-        self.source_selector.currentIndexChanged.connect(self._on_source_selector_changed)
-        top_bar.addWidget(self.source_selector)
 
         # Flash compare hint
         flash_hint = QLabel("(Hold S to flash compare)")
@@ -157,12 +166,15 @@ class MainWindow(QMainWindow):
         result_layout.addWidget(result_label)
         self.result_viewer = ImageViewer()
         self.result_viewer.brush_paint.connect(self.on_brush_paint)
+        self.result_viewer.brush_stroke_started.connect(self._on_stroke_started)
+        self.result_viewer.brush_stroke_finished.connect(self._on_stroke_finished)
         self.result_viewer.zoom_changed.connect(self._on_zoom_changed)
         result_layout.addWidget(self.result_viewer, stretch=1)
         splitter.addWidget(result_container)
 
         self.image_list = ImageList()
         self.image_list.image_selected.connect(self._on_image_selected)
+        self.image_list.image_remove_requested.connect(self._remove_image)
         splitter.addWidget(self.image_list)
 
         splitter.setSizes([400, 400, 200])
@@ -188,16 +200,18 @@ class MainWindow(QMainWindow):
         layout.addLayout(bottom_bar)
 
     def _open_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Image Folder")
-        if folder:
-            self._load_images(Path(folder))
+        """Open images via folder selection or file selection."""
+        # Use getOpenFileNames for individual file selection
+        files, _ = QFileDialog.getOpenFileNames(
+            self, "Select Images",
+            filter="Images (*.jpg *.jpeg *.png *.tif *.tiff);;All Files (*)"
+        )
+        if files:
+            self._load_image_files([Path(f) for f in files])
 
-    def _load_images(self, folder: Path):
-        extensions = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
-        self.images = sorted([
-            p for p in folder.iterdir()
-            if p.suffix.lower() in extensions
-        ])
+    def _load_image_files(self, files: list[Path]):
+        """Load a list of image files."""
+        self.images = sorted(files)
 
         # Validate dimensions match
         if len(self.images) > 1:
@@ -229,43 +243,29 @@ class MainWindow(QMainWindow):
         self.image_list.set_images(self.images)
         self.stack_btn.setEnabled(len(self.images) > 1)
         self.result_image = None
+        self.edited_result = None
         self.save_btn.setEnabled(False)
+        self.brush_btn.setEnabled(False)
+        self.source_arrays.clear()
 
-        # Update source selector dropdown
-        self.source_selector.blockSignals(True)
-        self.source_selector.clear()
-        for img in self.images:
-            self.source_selector.addItem(img.name)
-        self.source_selector.blockSignals(False)
+        # Clear undo/redo stacks
+        self._undo_stack.clear()
+        self._redo_stack.clear()
 
         if self.images:
             self.current_source_index = 0
-            self.source_selector.setCurrentIndex(0)
             self.source_viewer.load_image(self.images[0])
             self.result_viewer.clear()
 
     def _on_image_selected(self, path: Path):
-        # Find index and sync dropdown
+        """Handle image selection from sidebar."""
         try:
             idx = self.images.index(path)
             self.current_source_index = idx
-            self.source_selector.blockSignals(True)
-            self.source_selector.setCurrentIndex(idx)
-            self.source_selector.blockSignals(False)
         except ValueError:
             pass
         # Preserve zoom when switching source frames
         self.source_viewer.load_image(path, preserve_zoom=True)
-
-    def _on_source_selector_changed(self, index: int):
-        if 0 <= index < len(self.images):
-            self.current_source_index = index
-            # Preserve zoom when switching source frames
-            self.source_viewer.load_image(self.images[index], preserve_zoom=True)
-            # Sync sidebar selection
-            self.image_list.blockSignals(True)
-            self.image_list.setCurrentRow(index)
-            self.image_list.blockSignals(False)
 
     def _run_stack(self):
         if not self.images:
@@ -293,6 +293,10 @@ class MainWindow(QMainWindow):
         self.open_btn.setEnabled(True)
         self.save_btn.setEnabled(True)
         self.brush_btn.setEnabled(True)
+
+        # Clear undo/redo stacks for new stack result
+        self._undo_stack.clear()
+        self._redo_stack.clear()
 
         # Display result in result viewer
         self.result_viewer.load_array(self.edited_result)
@@ -377,8 +381,8 @@ class MainWindow(QMainWindow):
                     self.source_arrays[index] = img
         return self.source_arrays.get(index)
 
-    def _apply_brush_stroke(self, img_x: int, img_y: int):
-        """Apply brush stroke: copy pixels from source to result."""
+    def _apply_brush_stroke(self, img_x: int, img_y: int, record_undo: bool = True):
+        """Apply brush stroke: copy pixels from source to result with feathered edges."""
         if self.edited_result is None:
             return
 
@@ -389,32 +393,134 @@ class MainWindow(QMainWindow):
         h, w = self.edited_result.shape[:2]
         radius = self.brush_size // 2
 
-        # Create circular mask
-        y_coords, x_coords = np.ogrid[-radius:radius+1, -radius:radius+1]
-        mask = x_coords**2 + y_coords**2 <= radius**2
-
         # Calculate bounds in image coordinates
         y_start = max(0, img_y - radius)
         y_end = min(h, img_y + radius + 1)
         x_start = max(0, img_x - radius)
         x_end = min(w, img_x + radius + 1)
 
+        if y_start >= y_end or x_start >= x_end:
+            return
+
+        # Create feathered circular mask with alpha falloff
+        y_coords, x_coords = np.ogrid[-radius:radius+1, -radius:radius+1]
+        dist = np.sqrt(x_coords**2 + y_coords**2)
+        # Feather: full opacity in center, fading to 0 at edge
+        # Use inner 60% as full opacity, outer 40% as falloff
+        inner_radius = radius * 0.6
+        alpha = np.clip((radius - dist) / (radius - inner_radius), 0, 1)
+
         # Calculate corresponding bounds in mask
         mask_y_start = max(0, radius - img_y)
-        mask_y_end = mask.shape[0] - max(0, img_y + radius + 1 - h)
+        mask_y_end = alpha.shape[0] - max(0, img_y + radius + 1 - h)
         mask_x_start = max(0, radius - img_x)
-        mask_x_end = mask.shape[1] - max(0, img_x + radius + 1 - w)
+        mask_x_end = alpha.shape[1] - max(0, img_x + radius + 1 - w)
 
-        # Apply masked copy from source to result
-        mask_slice = mask[mask_y_start:mask_y_end, mask_x_start:mask_x_end]
+        alpha_slice = alpha[mask_y_start:mask_y_end, mask_x_start:mask_x_end]
+
+        # Store original pixels for undo (only pixels we're actually changing)
+        if record_undo and self._current_stroke is not None:
+            key = (img_x, img_y)
+            if key not in self._current_stroke.original_pixels:
+                # Store original region before modification
+                self._current_stroke.original_pixels[key] = self.edited_result[
+                    y_start:y_end, x_start:x_end
+                ].copy()
+            self._current_stroke.points.append(key)
+
+        # Apply alpha-blended copy from source to result
         for c in range(3):
-            result_region = self.edited_result[y_start:y_end, x_start:x_end, c]
-            source_region = source[y_start:y_end, x_start:x_end, c]
-            result_region[mask_slice] = source_region[mask_slice]
+            result_region = self.edited_result[y_start:y_end, x_start:x_end, c].astype(np.float32)
+            source_region = source[y_start:y_end, x_start:x_end, c].astype(np.float32)
+            blended = result_region * (1 - alpha_slice) + source_region * alpha_slice
+            self.edited_result[y_start:y_end, x_start:x_end, c] = blended.astype(np.uint8)
 
     def on_brush_paint(self, img_x: int, img_y: int):
         """Called from result_viewer when painting occurs."""
         self._apply_brush_stroke(img_x, img_y)
+        self.result_viewer.load_array(self.edited_result, preserve_zoom=True)
+
+    def _on_stroke_started(self):
+        """Called when a new brush stroke begins."""
+        self._current_stroke = BrushStroke(
+            points=[],
+            source_index=self.current_source_index,
+            brush_size=self.brush_size
+        )
+
+    def _on_stroke_finished(self):
+        """Called when a brush stroke ends."""
+        if self._current_stroke is not None and self._current_stroke.points:
+            self._undo_stack.append(self._current_stroke)
+            self._redo_stack.clear()  # Clear redo stack on new action
+        self._current_stroke = None
+
+    def _undo(self):
+        """Undo the last brush stroke."""
+        if not self._undo_stack or self.edited_result is None:
+            return
+
+        stroke = self._undo_stack.pop()
+
+        # Store current state for redo
+        redo_pixels = {}
+        for (x, y), orig in stroke.original_pixels.items():
+            h, w = self.edited_result.shape[:2]
+            radius = stroke.brush_size // 2
+            y_start = max(0, y - radius)
+            y_end = min(h, y + radius + 1)
+            x_start = max(0, x - radius)
+            x_end = min(w, x + radius + 1)
+            redo_pixels[(x, y)] = self.edited_result[y_start:y_end, x_start:x_end].copy()
+
+        # Restore original pixels
+        for (x, y), orig in stroke.original_pixels.items():
+            h, w = self.edited_result.shape[:2]
+            radius = stroke.brush_size // 2
+            y_start = max(0, y - radius)
+            y_end = min(h, y + radius + 1)
+            x_start = max(0, x - radius)
+            x_end = min(w, x + radius + 1)
+            self.edited_result[y_start:y_end, x_start:x_end] = orig
+
+        # Save for redo with swapped pixels
+        stroke.original_pixels = redo_pixels
+        self._redo_stack.append(stroke)
+
+        self.result_viewer.load_array(self.edited_result, preserve_zoom=True)
+
+    def _redo(self):
+        """Redo the last undone brush stroke."""
+        if not self._redo_stack or self.edited_result is None:
+            return
+
+        stroke = self._redo_stack.pop()
+
+        # Store current state for undo
+        undo_pixels = {}
+        for (x, y), redo_state in stroke.original_pixels.items():
+            h, w = self.edited_result.shape[:2]
+            radius = stroke.brush_size // 2
+            y_start = max(0, y - radius)
+            y_end = min(h, y + radius + 1)
+            x_start = max(0, x - radius)
+            x_end = min(w, x + radius + 1)
+            undo_pixels[(x, y)] = self.edited_result[y_start:y_end, x_start:x_end].copy()
+
+        # Apply redo (restore the painted state)
+        for (x, y), redo_state in stroke.original_pixels.items():
+            h, w = self.edited_result.shape[:2]
+            radius = stroke.brush_size // 2
+            y_start = max(0, y - radius)
+            y_end = min(h, y + radius + 1)
+            x_start = max(0, x - radius)
+            x_end = min(w, x + radius + 1)
+            self.edited_result[y_start:y_end, x_start:x_end] = redo_state
+
+        # Swap pixels for next undo
+        stroke.original_pixels = undo_pixels
+        self._undo_stack.append(stroke)
+
         self.result_viewer.load_array(self.edited_result, preserve_zoom=True)
 
     def _reset_zoom(self):
@@ -434,3 +540,40 @@ class MainWindow(QMainWindow):
         self.source_viewer.set_zoom_percent(value)
         self.result_viewer.set_zoom_percent(value)
         self.zoom_label.setText(f"{value}%")
+
+    def _setup_shortcuts(self):
+        """Setup keyboard shortcuts."""
+        # Undo: Ctrl+Z
+        undo_shortcut = QShortcut(QKeySequence.StandardKey.Undo, self)
+        undo_shortcut.activated.connect(self._undo)
+
+        # Redo: Ctrl+Shift+Z or Ctrl+Y
+        redo_shortcut = QShortcut(QKeySequence.StandardKey.Redo, self)
+        redo_shortcut.activated.connect(self._redo)
+
+    def _remove_image(self, index: int):
+        """Remove an image from the stack."""
+        if 0 <= index < len(self.images):
+            removed_path = self.images.pop(index)
+            # Clear cache if present
+            if index in self.source_arrays:
+                del self.source_arrays[index]
+            # Rebuild cache keys (shift indices)
+            new_cache = {}
+            for k, v in self.source_arrays.items():
+                if k > index:
+                    new_cache[k - 1] = v
+                else:
+                    new_cache[k] = v
+            self.source_arrays = new_cache
+
+            # Update UI
+            self.image_list.set_images(self.images)
+            self.stack_btn.setEnabled(len(self.images) > 1)
+
+            # Update selection
+            if self.images:
+                new_index = min(index, len(self.images) - 1)
+                self.current_source_index = new_index
+                self.image_list.setCurrentRow(new_index)
+                self.source_viewer.load_image(self.images[new_index], preserve_zoom=True)
