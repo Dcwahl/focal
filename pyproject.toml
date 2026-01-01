@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "focal"
+version = "0.1.0"
+description = "Focus stacking application"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.5.0",
+    "numpy>=1.24.0",
+    "opencv-python>=4.8.0",
+    "Pillow>=10.0.0",
+]
+
+[project.scripts]
+focal = "focal.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/focal"]
