@@ -4,9 +4,10 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QProgressBar, QFileDialog, QSplitter, QMessageBox,
-    QLabel, QFrame, QComboBox,
+    QLabel, QFrame, QComboBox, QSlider,
 )
 from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtGui import QCursor
 import cv2
 import numpy as np
 
@@ -45,10 +46,17 @@ class MainWindow(QMainWindow):
 
         self.images: list[Path] = []
         self.result_image: np.ndarray | None = None
+        self.edited_result: np.ndarray | None = None  # Result with brush edits applied
+        self.source_arrays: dict[int, np.ndarray] = {}  # Cached source images
         self.stacker = FocusStacker()
         self.worker: StackWorker | None = None
         self.current_source_index: int = 0
         self._flash_active: bool = False
+
+        # Brush state
+        self.brush_mode: bool = False
+        self.brush_size: int = 30
+        self._painting: bool = False
 
         self._setup_ui()
 
@@ -78,6 +86,28 @@ class MainWindow(QMainWindow):
         flash_hint.setStyleSheet("color: gray; font-size: 11px;")
         top_bar.addWidget(flash_hint)
 
+        top_bar.addStretch()
+
+        # Brush controls
+        self.brush_btn = QPushButton("Brush: Off")
+        self.brush_btn.setCheckable(True)
+        self.brush_btn.clicked.connect(self._toggle_brush_mode)
+        self.brush_btn.setEnabled(False)
+        top_bar.addWidget(self.brush_btn)
+
+        brush_size_label = QLabel("Size:")
+        top_bar.addWidget(brush_size_label)
+        self.brush_slider = QSlider(Qt.Horizontal)
+        self.brush_slider.setMinimum(5)
+        self.brush_slider.setMaximum(100)
+        self.brush_slider.setValue(30)
+        self.brush_slider.setFixedWidth(100)
+        self.brush_slider.valueChanged.connect(self._on_brush_size_changed)
+        top_bar.addWidget(self.brush_slider)
+        self.brush_size_label = QLabel("30")
+        self.brush_size_label.setFixedWidth(25)
+        top_bar.addWidget(self.brush_size_label)
+
         layout.addLayout(top_bar)
 
         # Main content: source viewer + result viewer + image list
@@ -104,6 +134,7 @@ class MainWindow(QMainWindow):
         result_label.setStyleSheet("font-weight: bold; padding: 4px;")
         result_layout.addWidget(result_label)
         self.result_viewer = ImageViewer()
+        self.result_viewer.brush_paint.connect(self.on_brush_paint)
         result_layout.addWidget(self.result_viewer, stretch=1)
         splitter.addWidget(result_container)
 
@@ -231,13 +262,15 @@ class MainWindow(QMainWindow):
 
     def _on_stack_finished(self, result: np.ndarray):
         self.result_image = result
+        self.edited_result = result.copy()  # Start with unedited result
         self.progress.setVisible(False)
         self.stack_btn.setEnabled(True)
         self.open_btn.setEnabled(True)
         self.save_btn.setEnabled(True)
+        self.brush_btn.setEnabled(True)
 
         # Display result in result viewer
-        self.result_viewer.load_array(result)
+        self.result_viewer.load_array(self.edited_result)
         self.worker = None
 
     def _on_stack_error(self, error_msg: str):
@@ -248,7 +281,7 @@ class MainWindow(QMainWindow):
         self.worker = None
 
     def _save_result(self):
-        if self.result_image is None:
+        if self.edited_result is None:
             return
 
         path, selected_filter = QFileDialog.getSaveFileName(
@@ -264,7 +297,7 @@ class MainWindow(QMainWindow):
             elif selected_filter == "PNG (*.png)" and not path.endswith('.png'):
                 path += '.png'
 
-            cv2.imwrite(path, self.result_image)
+            cv2.imwrite(path, self.edited_result)
 
     def keyPressEvent(self, event):
         """Handle key press - S for flash compare."""
@@ -278,8 +311,75 @@ class MainWindow(QMainWindow):
     def keyReleaseEvent(self, event):
         """Handle key release - restore result view."""
         if event.key() == Qt.Key_S and not event.isAutoRepeat():
-            if self._flash_active and self.result_image is not None:
+            if self._flash_active and self.edited_result is not None:
                 self._flash_active = False
                 # Restore result view
-                self.result_viewer.load_array(self.result_image)
+                self.result_viewer.load_array(self.edited_result)
         super().keyReleaseEvent(event)
+
+    def _toggle_brush_mode(self, checked: bool):
+        """Toggle brush painting mode."""
+        self.brush_mode = checked
+        self.brush_btn.setText("Brush: On" if checked else "Brush: Off")
+        if checked:
+            self.result_viewer.setCursor(Qt.CrossCursor)
+            self.result_viewer.set_brush_mode(True, self.brush_size)
+        else:
+            self.result_viewer.setCursor(Qt.ArrowCursor)
+            self.result_viewer.set_brush_mode(False, 0)
+
+    def _on_brush_size_changed(self, value: int):
+        """Update brush size."""
+        self.brush_size = value
+        self.brush_size_label.setText(str(value))
+        if self.brush_mode:
+            self.result_viewer.set_brush_mode(True, value)
+
+    def _get_source_array(self, index: int) -> np.ndarray | None:
+        """Get source image as numpy array, caching for performance."""
+        if index not in self.source_arrays:
+            if 0 <= index < len(self.images):
+                img = cv2.imread(str(self.images[index]))
+                if img is not None:
+                    self.source_arrays[index] = img
+        return self.source_arrays.get(index)
+
+    def _apply_brush_stroke(self, img_x: int, img_y: int):
+        """Apply brush stroke: copy pixels from source to result."""
+        if self.edited_result is None:
+            return
+
+        source = self._get_source_array(self.current_source_index)
+        if source is None:
+            return
+
+        h, w = self.edited_result.shape[:2]
+        radius = self.brush_size // 2
+
+        # Create circular mask
+        y_coords, x_coords = np.ogrid[-radius:radius+1, -radius:radius+1]
+        mask = x_coords**2 + y_coords**2 <= radius**2
+
+        # Calculate bounds in image coordinates
+        y_start = max(0, img_y - radius)
+        y_end = min(h, img_y + radius + 1)
+        x_start = max(0, img_x - radius)
+        x_end = min(w, img_x + radius + 1)
+
+        # Calculate corresponding bounds in mask
+        mask_y_start = max(0, radius - img_y)
+        mask_y_end = mask.shape[0] - max(0, img_y + radius + 1 - h)
+        mask_x_start = max(0, radius - img_x)
+        mask_x_end = mask.shape[1] - max(0, img_x + radius + 1 - w)
+
+        # Apply masked copy from source to result
+        mask_slice = mask[mask_y_start:mask_y_end, mask_x_start:mask_x_end]
+        for c in range(3):
+            result_region = self.edited_result[y_start:y_end, x_start:x_end, c]
+            source_region = source[y_start:y_end, x_start:x_end, c]
+            result_region[mask_slice] = source_region[mask_slice]
+
+    def on_brush_paint(self, img_x: int, img_y: int):
+        """Called from result_viewer when painting occurs."""
+        self._apply_brush_stroke(img_x, img_y)
+        self.result_viewer.load_array(self.edited_result)
