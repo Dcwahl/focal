@@ -4,9 +4,9 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QProgressBar, QFileDialog, QSplitter, QMessageBox,
-    QLabel, QFrame, QSlider, QShortcut,
+    QLabel, QFrame, QSlider,
 )
-from PySide6.QtGui import QKeySequence
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtCore import Qt, QThread, Signal
 import cv2
 import numpy as np
