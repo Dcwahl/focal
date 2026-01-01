@@ -44,6 +44,11 @@ class ImageViewer(QScrollArea):
         self.current_pixmap = QPixmap.fromImage(qimg)
         self._update_display()
 
+    def clear(self):
+        """Clear the displayed image."""
+        self.current_pixmap = None
+        self.label.clear()
+
     def _update_display(self):
         if self.current_pixmap is None:
             return

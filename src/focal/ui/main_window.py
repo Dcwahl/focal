@@ -4,6 +4,7 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QProgressBar, QFileDialog, QSplitter, QMessageBox,
+    QLabel, QFrame,
 )
 from PySide6.QtCore import Qt, QThread, Signal
 import cv2
@@ -62,17 +63,38 @@ class MainWindow(QMainWindow):
         top_bar.addStretch()
         layout.addLayout(top_bar)
 
-        # Main content: viewer + image list
+        # Main content: source viewer + result viewer + image list
         splitter = QSplitter(Qt.Horizontal)
 
-        self.viewer = ImageViewer()
-        splitter.addWidget(self.viewer)
+        # Source viewer with label
+        source_container = QWidget()
+        source_layout = QVBoxLayout(source_container)
+        source_layout.setContentsMargins(0, 0, 0, 0)
+        source_label = QLabel("Source")
+        source_label.setAlignment(Qt.AlignCenter)
+        source_label.setStyleSheet("font-weight: bold; padding: 4px;")
+        source_layout.addWidget(source_label)
+        self.source_viewer = ImageViewer()
+        source_layout.addWidget(self.source_viewer, stretch=1)
+        splitter.addWidget(source_container)
+
+        # Result viewer with label
+        result_container = QWidget()
+        result_layout = QVBoxLayout(result_container)
+        result_layout.setContentsMargins(0, 0, 0, 0)
+        result_label = QLabel("Result")
+        result_label.setAlignment(Qt.AlignCenter)
+        result_label.setStyleSheet("font-weight: bold; padding: 4px;")
+        result_layout.addWidget(result_label)
+        self.result_viewer = ImageViewer()
+        result_layout.addWidget(self.result_viewer, stretch=1)
+        splitter.addWidget(result_container)
 
         self.image_list = ImageList()
         self.image_list.image_selected.connect(self._on_image_selected)
         splitter.addWidget(self.image_list)
 
-        splitter.setSizes([700, 200])
+        splitter.setSizes([400, 400, 200])
         layout.addWidget(splitter, stretch=1)
 
         # Bottom bar
@@ -106,16 +128,44 @@ class MainWindow(QMainWindow):
             if p.suffix.lower() in extensions
         ])
 
+        # Validate dimensions match
+        if len(self.images) > 1:
+            dimensions = []
+            for img_path in self.images:
+                img = cv2.imread(str(img_path))
+                if img is not None:
+                    dimensions.append((img_path.name, img.shape[:2]))
+
+            if dimensions:
+                first_dim = dimensions[0][1]
+                mismatched = [
+                    (name, dim) for name, dim in dimensions
+                    if dim != first_dim
+                ]
+                if mismatched:
+                    msg = f"Image dimension mismatch detected.\n\n"
+                    msg += f"Expected: {first_dim[1]}x{first_dim[0]} (from {dimensions[0][0]})\n\n"
+                    msg += "Mismatched images:\n"
+                    for name, dim in mismatched:
+                        msg += f"  • {name}: {dim[1]}x{dim[0]}\n"
+                    msg += "\nStacking requires all images to have the same dimensions."
+                    QMessageBox.warning(self, "Dimension Mismatch", msg)
+                    self.images = []
+                    self.image_list.set_images([])
+                    self.stack_btn.setEnabled(False)
+                    return
+
         self.image_list.set_images(self.images)
         self.stack_btn.setEnabled(len(self.images) > 1)
         self.result_image = None
         self.save_btn.setEnabled(False)
 
         if self.images:
-            self.viewer.load_image(self.images[0])
+            self.source_viewer.load_image(self.images[0])
+            self.result_viewer.clear()
 
     def _on_image_selected(self, path: Path):
-        self.viewer.load_image(path)
+        self.source_viewer.load_image(path)
 
     def _run_stack(self):
         if not self.images:
@@ -142,8 +192,8 @@ class MainWindow(QMainWindow):
         self.open_btn.setEnabled(True)
         self.save_btn.setEnabled(True)
 
-        # Display result in viewer
-        self.viewer.load_array(result)
+        # Display result in result viewer
+        self.result_viewer.load_array(result)
         self.worker = None
 
     def _on_stack_error(self, error_msg: str):
