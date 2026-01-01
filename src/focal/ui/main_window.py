@@ -254,12 +254,14 @@ class MainWindow(QMainWindow):
             self.source_selector.blockSignals(False)
         except ValueError:
             pass
-        self.source_viewer.load_image(path)
+        # Preserve zoom when switching source frames
+        self.source_viewer.load_image(path, preserve_zoom=True)
 
     def _on_source_selector_changed(self, index: int):
         if 0 <= index < len(self.images):
             self.current_source_index = index
-            self.source_viewer.load_image(self.images[index])
+            # Preserve zoom when switching source frames
+            self.source_viewer.load_image(self.images[index], preserve_zoom=True)
             # Sync sidebar selection
             self.image_list.blockSignals(True)
             self.image_list.setCurrentRow(index)
