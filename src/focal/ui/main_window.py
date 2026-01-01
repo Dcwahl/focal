@@ -4,7 +4,7 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QProgressBar, QFileDialog, QSplitter, QMessageBox,
-    QLabel, QFrame,
+    QLabel, QFrame, QComboBox,
 )
 from PySide6.QtCore import Qt, QThread, Signal
 import cv2
@@ -47,6 +47,8 @@ class MainWindow(QMainWindow):
         self.result_image: np.ndarray | None = None
         self.stacker = FocusStacker()
         self.worker: StackWorker | None = None
+        self.current_source_index: int = 0
+        self._flash_active: bool = False
 
         self._setup_ui()
 
@@ -60,7 +62,22 @@ class MainWindow(QMainWindow):
         self.open_btn = QPushButton("Open")
         self.open_btn.clicked.connect(self._open_folder)
         top_bar.addWidget(self.open_btn)
+
         top_bar.addStretch()
+
+        # Source frame selector
+        source_selector_label = QLabel("Source frame:")
+        top_bar.addWidget(source_selector_label)
+        self.source_selector = QComboBox()
+        self.source_selector.setMinimumWidth(150)
+        self.source_selector.currentIndexChanged.connect(self._on_source_selector_changed)
+        top_bar.addWidget(self.source_selector)
+
+        # Flash compare hint
+        flash_hint = QLabel("(Hold S to flash compare)")
+        flash_hint.setStyleSheet("color: gray; font-size: 11px;")
+        top_bar.addWidget(flash_hint)
+
         layout.addLayout(top_bar)
 
         # Main content: source viewer + result viewer + image list
@@ -160,12 +177,39 @@ class MainWindow(QMainWindow):
         self.result_image = None
         self.save_btn.setEnabled(False)
 
+        # Update source selector dropdown
+        self.source_selector.blockSignals(True)
+        self.source_selector.clear()
+        for img in self.images:
+            self.source_selector.addItem(img.name)
+        self.source_selector.blockSignals(False)
+
         if self.images:
+            self.current_source_index = 0
+            self.source_selector.setCurrentIndex(0)
             self.source_viewer.load_image(self.images[0])
             self.result_viewer.clear()
 
     def _on_image_selected(self, path: Path):
+        # Find index and sync dropdown
+        try:
+            idx = self.images.index(path)
+            self.current_source_index = idx
+            self.source_selector.blockSignals(True)
+            self.source_selector.setCurrentIndex(idx)
+            self.source_selector.blockSignals(False)
+        except ValueError:
+            pass
         self.source_viewer.load_image(path)
+
+    def _on_source_selector_changed(self, index: int):
+        if 0 <= index < len(self.images):
+            self.current_source_index = index
+            self.source_viewer.load_image(self.images[index])
+            # Sync sidebar selection
+            self.image_list.blockSignals(True)
+            self.image_list.setCurrentRow(index)
+            self.image_list.blockSignals(False)
 
     def _run_stack(self):
         if not self.images:
@@ -221,3 +265,21 @@ class MainWindow(QMainWindow):
                 path += '.png'
 
             cv2.imwrite(path, self.result_image)
+
+    def keyPressEvent(self, event):
+        """Handle key press - S for flash compare."""
+        if event.key() == Qt.Key_S and not event.isAutoRepeat():
+            if self.result_image is not None and self.images:
+                self._flash_active = True
+                # Show current source in the result panel
+                self.result_viewer.load_image(self.images[self.current_source_index])
+        super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event):
+        """Handle key release - restore result view."""
+        if event.key() == Qt.Key_S and not event.isAutoRepeat():
+            if self._flash_active and self.result_image is not None:
+                self._flash_active = False
+                # Restore result view
+                self.result_viewer.load_array(self.result_image)
+        super().keyReleaseEvent(event)
