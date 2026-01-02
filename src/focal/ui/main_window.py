@@ -4,7 +4,7 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QProgressBar, QFileDialog, QSplitter, QMessageBox,
-    QLabel, QFrame, QSlider,
+    QLabel, QFrame, QSlider, QComboBox,
 )
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtCore import Qt, QThread, Signal
@@ -13,7 +13,7 @@ import numpy as np
 
 from focal.ui.image_list import ImageList
 from focal.ui.image_viewer import ImageViewer
-from focal.core.stacker import FocusStacker
+from focal.core.stacker import FocusStacker, StackAlgorithm
 
 
 class BrushStroke:
@@ -86,6 +86,16 @@ class MainWindow(QMainWindow):
         self.open_btn = QPushButton("Open")
         self.open_btn.clicked.connect(self._open_folder)
         top_bar.addWidget(self.open_btn)
+
+        # Algorithm selector
+        algo_label = QLabel("Algorithm:")
+        top_bar.addWidget(algo_label)
+        self.algo_combo = QComboBox()
+        self.algo_combo.addItem("Laplacian", StackAlgorithm.LAPLACIAN)
+        self.algo_combo.addItem("DTCWT", StackAlgorithm.DTCWT)
+        self.algo_combo.setToolTip("Laplacian: faster, good for most cases\nDTCWT: better edge handling, slower")
+        self.algo_combo.currentIndexChanged.connect(self._on_algorithm_changed)
+        top_bar.addWidget(self.algo_combo)
 
         top_bar.addStretch()
 
@@ -266,6 +276,11 @@ class MainWindow(QMainWindow):
             pass
         # Preserve zoom when switching source frames
         self.source_viewer.load_image(path, preserve_zoom=True)
+
+    def _on_algorithm_changed(self, index: int):
+        """Handle algorithm selection change."""
+        algorithm = self.algo_combo.currentData()
+        self.stacker = FocusStacker(algorithm=algorithm)
 
     def _run_stack(self):
         if not self.images:

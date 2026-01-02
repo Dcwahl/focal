@@ -16,7 +16,13 @@ def test_import_main():
 def test_import_core_stacker():
     """Test that core.stacker imports without errors."""
     from focal.core import stacker
-    from focal.core.stacker import FocusStacker
+    from focal.core.stacker import FocusStacker, StackAlgorithm
+
+
+def test_import_core_complex_wavelet():
+    """Test that core.complex_wavelet imports without errors."""
+    from focal.core import complex_wavelet
+    from focal.core.complex_wavelet import decompose, compose, merge_wavelets
 
 
 def test_import_ui_main_window():

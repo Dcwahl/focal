@@ -3,7 +3,8 @@
 import numpy as np
 import pytest
 
-from focal.core.stacker import FocusStacker
+from focal.core.stacker import FocusStacker, StackAlgorithm
+from focal.core import complex_wavelet
 
 
 class TestFocusStackerInit:
@@ -14,12 +15,19 @@ class TestFocusStackerInit:
         stacker = FocusStacker()
         assert stacker.num_levels is None
         assert stacker.kernel_size == 5
+        assert stacker.algorithm == StackAlgorithm.LAPLACIAN
 
     def test_custom_init(self):
         """Test initialization with custom parameters."""
         stacker = FocusStacker(num_levels=4, kernel_size=7)
         assert stacker.num_levels == 4
         assert stacker.kernel_size == 7
+
+    def test_complex_wavelet_init(self):
+        """Test initialization with Complex Wavelet algorithm."""
+        stacker = FocusStacker(algorithm=StackAlgorithm.COMPLEX_WAVELET)
+        assert stacker.algorithm == StackAlgorithm.COMPLEX_WAVELET
+        assert stacker.consistency == 2
 
 
 class TestComputeNumLevels:
@@ -196,3 +204,59 @@ class TestStackValidation:
         stacker = FocusStacker()
         with pytest.raises(ValueError, match="No images to stack"):
             stacker.stack([])
+
+
+class TestComplexWavelet:
+    """Tests for Complex Wavelet transform."""
+
+    def test_levels_for_size(self):
+        """Test level calculation for various image sizes."""
+        assert complex_wavelet.levels_for_size((64, 64)) >= 5
+        assert complex_wavelet.levels_for_size((2048, 2048)) <= 10
+
+    def test_expand_to_valid_size(self):
+        """Test image expansion to valid wavelet size."""
+        levels = 5
+        h, w = complex_wavelet.expand_to_valid_size((100, 100), levels)
+        assert h % (1 << levels) == 0
+        assert w % (1 << levels) == 0
+        assert h >= 100
+        assert w >= 100
+
+    def test_decompose_compose_roundtrip(self):
+        """Test that decompose -> compose recovers the original."""
+        image = np.random.rand(64, 64).astype(np.float32) * 255
+        levels = 5
+        wavelet = complex_wavelet.decompose(image, levels)
+        reconstructed = complex_wavelet.compose(wavelet, levels)
+        np.testing.assert_allclose(reconstructed, image, atol=1.0)
+
+    def test_wavelet_shape(self):
+        """Test that wavelet output has correct shape."""
+        image = np.random.rand(64, 64).astype(np.float32)
+        levels = 5
+        wavelet = complex_wavelet.decompose(image, levels)
+        assert wavelet.shape == (64, 64, 2)  # Complex: (H, W, 2)
+
+    def test_merge_wavelets(self):
+        """Test merging multiple wavelets."""
+        image1 = np.random.rand(64, 64).astype(np.float32) * 255
+        image2 = np.random.rand(64, 64).astype(np.float32) * 255
+        levels = 5
+        w1 = complex_wavelet.decompose(image1, levels)
+        w2 = complex_wavelet.decompose(image2, levels)
+        merged = complex_wavelet.merge_wavelets([w1, w2], consistency=0)
+        assert merged.shape == w1.shape
+
+    def test_merge_selects_max_magnitude(self):
+        """Test that merge picks higher magnitude coefficients."""
+        # Create two images: one with high energy, one with low
+        high = np.ones((32, 32), dtype=np.float32) * 200
+        low = np.ones((32, 32), dtype=np.float32) * 50
+        levels = 5
+        w_high = complex_wavelet.decompose(high, levels)
+        w_low = complex_wavelet.decompose(low, levels)
+        merged = complex_wavelet.merge_wavelets([w_high, w_low], consistency=0)
+        # Merged should be closer to high energy image
+        reconstructed = complex_wavelet.compose(merged, levels)
+        assert np.mean(reconstructed) > np.mean(low)

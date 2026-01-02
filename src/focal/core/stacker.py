@@ -1,17 +1,33 @@
-"""Focus stacking algorithm using Laplacian pyramid fusion."""
+"""Focus stacking algorithms: Laplacian pyramid and Complex wavelet fusion."""
 
+from enum import Enum
 from pathlib import Path
 from typing import Callable
 import cv2
 import numpy as np
 
+from focal.core import complex_wavelet
+
+
+class StackAlgorithm(Enum):
+    LAPLACIAN = "laplacian"
+    COMPLEX_WAVELET = "complex_wavelet"
+
 
 class FocusStacker:
-    """Laplacian pyramid focus stacking."""
+    """Focus stacking with selectable algorithm."""
 
-    def __init__(self, num_levels: int | None = None, kernel_size: int = 5):
+    def __init__(
+        self,
+        algorithm: StackAlgorithm = StackAlgorithm.LAPLACIAN,
+        num_levels: int | None = None,
+        kernel_size: int = 5,
+        consistency: int = 2,
+    ):
+        self.algorithm = algorithm
         self.num_levels = num_levels
         self.kernel_size = kernel_size
+        self.consistency = consistency  # For complex_wavelet denoising (0-2)
 
     def stack(
         self,
@@ -19,7 +35,7 @@ class FocusStacker:
         progress_callback: Callable[[int], None] | None = None
     ) -> np.ndarray:
         """
-        Stack images using Laplacian pyramid method.
+        Stack images using selected algorithm.
 
         Args:
             image_paths: List of paths to source images
@@ -28,6 +44,17 @@ class FocusStacker:
         Returns:
             Stacked result as numpy array (H, W, C) in uint8
         """
+        if self.algorithm == StackAlgorithm.complex_wavelet:
+            return self._stack_complex_wavelet(image_paths, progress_callback)
+        else:
+            return self._stack_laplacian(image_paths, progress_callback)
+
+    def _stack_laplacian(
+        self,
+        image_paths: list[Path],
+        progress_callback: Callable[[int], None] | None = None
+    ) -> np.ndarray:
+        """Stack images using Laplacian pyramid method."""
         if not image_paths:
             raise ValueError("No images to stack")
 
@@ -42,7 +69,7 @@ class FocusStacker:
                 raise ValueError(f"Could not load image: {path}")
             images.append(img)
             if progress_callback:
-                progress_callback(int((i + 1) / len(image_paths) * 30))  # 0-30%
+                progress_callback(int((i + 1) / len(image_paths) * 30))
 
         # Convert to float32
         float_images = [img.astype(np.float32) for img in images]
@@ -61,7 +88,7 @@ class FocusStacker:
             laplacian_pyramids.append(self._build_laplacian_pyramid(gauss))
             gaussian_pyramids_gray.append(gauss_gray)
             if progress_callback:
-                progress_callback(30 + int((i + 1) / len(images) * 30))  # 30-60%
+                progress_callback(30 + int((i + 1) / len(images) * 30))
 
         # Fuse at each level
         fused_laplacian = []
@@ -81,7 +108,7 @@ class FocusStacker:
 
             fused_laplacian.append(blended)
             if progress_callback:
-                progress_callback(60 + int((level + 1) / num_levels * 30))  # 60-90%
+                progress_callback(60 + int((level + 1) / num_levels * 30))
 
         # Reconstruct
         result = self._reconstruct_from_laplacian(fused_laplacian)
@@ -89,6 +116,125 @@ class FocusStacker:
 
         if progress_callback:
             progress_callback(100)
+
+        return result
+
+    def _stack_complex_wavelet(
+        self,
+        image_paths: list[Path],
+        progress_callback: Callable[[int], None] | None = None
+    ) -> np.ndarray:
+        """Stack images using complex_wavelet (Complex Daubechies) wavelet method."""
+        if not image_paths:
+            raise ValueError("No images to stack")
+
+        if len(image_paths) == 1:
+            return cv2.imread(str(image_paths[0]))
+
+        # Load images
+        images = []
+        for i, path in enumerate(image_paths):
+            img = cv2.imread(str(path))
+            if img is None:
+                raise ValueError(f"Could not load image: {path}")
+            images.append(img)
+            if progress_callback:
+                progress_callback(int((i + 1) / len(image_paths) * 20))
+
+        h, w = images[0].shape[:2]
+
+        # Determine wavelet levels and expand images
+        levels = complex_wavelet.levels_for_size((h, w))
+        new_h, new_w = complex_wavelet.expand_to_valid_size((h, w), levels)
+
+        # Expand images with reflection padding if needed
+        expanded_images = []
+        for img in images:
+            if new_h != h or new_w != w:
+                padded = cv2.copyMakeBorder(
+                    img, 0, new_h - h, 0, new_w - w,
+                    cv2.BORDER_REFLECT
+                )
+                expanded_images.append(padded)
+            else:
+                expanded_images.append(img)
+
+        if progress_callback:
+            progress_callback(25)
+
+        # Convert to grayscale for wavelet transform
+        grayscales = [
+            cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+            for img in expanded_images
+        ]
+
+        if progress_callback:
+            progress_callback(30)
+
+        # Decompose each grayscale image
+        wavelets = []
+        for i, gray in enumerate(grayscales):
+            wavelet = complex_wavelet.decompose(gray, levels)
+            wavelets.append(wavelet)
+            if progress_callback:
+                progress_callback(30 + int((i + 1) / len(grayscales) * 30))
+
+        # Merge wavelets
+        merged_wavelet = complex_wavelet.merge_wavelets(wavelets, consistency=self.consistency)
+
+        if progress_callback:
+            progress_callback(70)
+
+        # Reconstruct grayscale
+        merged_gray = complex_wavelet.compose(merged_wavelet, levels)
+        merged_gray = np.clip(merged_gray, 0, 255).astype(np.uint8)
+
+        if progress_callback:
+            progress_callback(80)
+
+        # Reassign colors from source images
+        result = self._reassign_colors(merged_gray, grayscales, expanded_images)
+
+        if progress_callback:
+            progress_callback(95)
+
+        # Crop back to original size
+        result = result[:h, :w]
+
+        if progress_callback:
+            progress_callback(100)
+
+        return result
+
+    def _reassign_colors(
+        self,
+        merged_gray: np.ndarray,
+        source_grays: list[np.ndarray],
+        source_colors: list[np.ndarray],
+    ) -> np.ndarray:
+        """
+        Reassign colors from source images based on grayscale similarity.
+
+        For each pixel, finds the source image with closest grayscale value
+        and uses its color.
+        """
+        h, w = merged_gray.shape
+        result = np.zeros((h, w, 3), dtype=np.uint8)
+
+        # Stack grayscales for vectorized comparison
+        gray_stack = np.stack(source_grays, axis=0)  # (N, H, W)
+
+        # For each pixel, find which source has closest gray value
+        # Compute absolute difference between merged and each source
+        diffs = np.abs(gray_stack - merged_gray.astype(np.float32))  # (N, H, W)
+
+        # Find index of minimum difference
+        best_idx = np.argmin(diffs, axis=0)  # (H, W)
+
+        # Assign colors from best matching source
+        for i, color_img in enumerate(source_colors):
+            mask = best_idx == i
+            result[mask] = color_img[mask]
 
         return result
 
