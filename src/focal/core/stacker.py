@@ -7,6 +7,9 @@ import cv2
 import numpy as np
 
 from focal.core import complex_wavelet
+from focal.core.align import align_image
+from focal.core.grayscale import compute_pca_weights, to_grayscale
+from focal.core.reassign import build_color_map, reassign_colors
 
 
 class StackAlgorithm(Enum):
@@ -139,7 +142,7 @@ class FocusStacker:
                 raise ValueError(f"Could not load image: {path}")
             images.append(img)
             if progress_callback:
-                progress_callback(int((i + 1) / len(image_paths) * 20))
+                progress_callback(int((i + 1) / len(image_paths) * 10))
 
         h, w = images[0].shape[:2]
 
@@ -160,40 +163,67 @@ class FocusStacker:
                 expanded_images.append(img)
 
         if progress_callback:
-            progress_callback(25)
+            progress_callback(15)
 
-        # Convert to grayscale for wavelet transform
-        grayscales = [
-            cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
-            for img in expanded_images
-        ]
+        # Determine reference image (middle of stack)
+        ref_idx = len(expanded_images) // 2
+
+        # Compute PCA weights from reference image for grayscale conversion
+        pca_weights = compute_pca_weights(expanded_images[ref_idx])
+
+        # Convert to grayscale using PCA weights
+        grayscales = [to_grayscale(img, pca_weights) for img in expanded_images]
 
         if progress_callback:
-            progress_callback(30)
+            progress_callback(20)
 
-        # Decompose each grayscale image
+        # Align images to reference
+        ref_gray = grayscales[ref_idx]
+        ref_color = expanded_images[ref_idx]
+
+        aligned_colors = []
+        aligned_grays = []
+
+        for i, (gray, color) in enumerate(zip(grayscales, expanded_images)):
+            if i == ref_idx:
+                aligned_colors.append(color)
+                aligned_grays.append(gray)
+            else:
+                aligned_color = align_image(ref_gray, ref_color, gray, color)
+                aligned_gray = to_grayscale(aligned_color, pca_weights)
+                aligned_colors.append(aligned_color)
+                aligned_grays.append(aligned_gray)
+            if progress_callback:
+                progress_callback(20 + int((i + 1) / len(grayscales) * 20))
+
+        # Decompose each aligned grayscale image
         wavelets = []
-        for i, gray in enumerate(grayscales):
-            wavelet = complex_wavelet.decompose(gray, levels)
+        for i, gray in enumerate(aligned_grays):
+            wavelet = complex_wavelet.decompose(gray.astype(np.float32), levels)
             wavelets.append(wavelet)
             if progress_callback:
-                progress_callback(30 + int((i + 1) / len(grayscales) * 30))
+                progress_callback(40 + int((i + 1) / len(aligned_grays) * 20))
 
         # Merge wavelets
         merged_wavelet = complex_wavelet.merge_wavelets(wavelets, consistency=self.consistency)
 
         if progress_callback:
-            progress_callback(70)
+            progress_callback(65)
 
         # Reconstruct grayscale
         merged_gray = complex_wavelet.compose(merged_wavelet, levels)
         merged_gray = np.clip(merged_gray, 0, 255).astype(np.uint8)
 
         if progress_callback:
-            progress_callback(80)
+            progress_callback(70)
 
-        # Reassign colors from source images
-        result = self._reassign_colors(merged_gray, grayscales, expanded_images)
+        # Reassign colors using proper color map
+        color_map = build_color_map(aligned_grays, aligned_colors)
+
+        if progress_callback:
+            progress_callback(85)
+
+        result = reassign_colors(merged_gray, color_map)
 
         if progress_callback:
             progress_callback(95)
@@ -203,38 +233,6 @@ class FocusStacker:
 
         if progress_callback:
             progress_callback(100)
-
-        return result
-
-    def _reassign_colors(
-        self,
-        merged_gray: np.ndarray,
-        source_grays: list[np.ndarray],
-        source_colors: list[np.ndarray],
-    ) -> np.ndarray:
-        """
-        Reassign colors from source images based on grayscale similarity.
-
-        For each pixel, finds the source image with closest grayscale value
-        and uses its color.
-        """
-        h, w = merged_gray.shape
-        result = np.zeros((h, w, 3), dtype=np.uint8)
-
-        # Stack grayscales for vectorized comparison
-        gray_stack = np.stack(source_grays, axis=0)  # (N, H, W)
-
-        # For each pixel, find which source has closest gray value
-        # Compute absolute difference between merged and each source
-        diffs = np.abs(gray_stack - merged_gray.astype(np.float32))  # (N, H, W)
-
-        # Find index of minimum difference
-        best_idx = np.argmin(diffs, axis=0)  # (H, W)
-
-        # Assign colors from best matching source
-        for i, color_img in enumerate(source_colors):
-            mask = best_idx == i
-            result[mask] = color_img[mask]
 
         return result
 

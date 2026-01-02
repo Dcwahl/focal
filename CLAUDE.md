@@ -15,16 +15,21 @@ focal/
 │   │   ├── image_viewer.py  # QGraphicsView-based image display with zoom/pan/brush
 │   │   └── image_list.py    # File list sidebar
 │   └── core/
-│       └── stacker.py       # Focus stacking algorithm (Laplacian pyramid)
+│       ├── stacker.py       # Focus stacking orchestrator (algorithm selection)
+│       ├── complex_wavelet.py # Complex Daubechies wavelet transform
+│       ├── align.py         # ECC-based image alignment
+│       ├── grayscale.py     # PCA-based grayscale conversion
+│       └── reassign.py      # Color reassignment from grayscale
 ├── docs/
 │   ├── PHASE1_MVP.md        # Completed MVP scope
-│   └── PHASE2_RETOUCHING.md # Current phase - source-frame retouching
+│   ├── PHASE2_RETOUCHING.md # Current phase - source-frame retouching
+│   └── ALGORITHMS.md        # Stacking algorithm details
 └── tests/
 ```
 
 ## Current State
 
-- **Stacking**: Working Laplacian pyramid stacking
+- **Stacking**: Two algorithms available (Laplacian pyramid, Complex Daubechies wavelet)
 - **UI**: Side-by-side source/result panels with zoom/pan
 - **Retouching**: Basic pixel brush (copies from source to result)
 - **Flash compare**: Hold S to see source overlaid on result
