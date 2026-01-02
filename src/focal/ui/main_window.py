@@ -92,8 +92,8 @@ class MainWindow(QMainWindow):
         top_bar.addWidget(algo_label)
         self.algo_combo = QComboBox()
         self.algo_combo.addItem("Laplacian", StackAlgorithm.LAPLACIAN)
-        self.algo_combo.addItem("DTCWT", StackAlgorithm.DTCWT)
-        self.algo_combo.setToolTip("Laplacian: faster, good for most cases\nDTCWT: better edge handling, slower")
+        self.algo_combo.addItem("Complex Wavelet", StackAlgorithm.COMPLEX_WAVELET)
+        self.algo_combo.setToolTip("Laplacian: faster, good for most cases\nComplex Wavelet: better edge handling, slower")
         self.algo_combo.currentIndexChanged.connect(self._on_algorithm_changed)
         top_bar.addWidget(self.algo_combo)
 

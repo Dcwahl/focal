@@ -44,7 +44,7 @@ class FocusStacker:
         Returns:
             Stacked result as numpy array (H, W, C) in uint8
         """
-        if self.algorithm == StackAlgorithm.complex_wavelet:
+        if self.algorithm == StackAlgorithm.COMPLEX_WAVELET:
             return self._stack_complex_wavelet(image_paths, progress_callback)
         else:
             return self._stack_laplacian(image_paths, progress_callback)

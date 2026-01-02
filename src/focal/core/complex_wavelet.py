@@ -33,10 +33,21 @@ MAX_LEVELS = 10
 
 def levels_for_size(shape: tuple[int, int]) -> int:
     """Determine number of decomposition levels for given image size."""
-    dimension = max(shape)
-    levels = MIN_LEVELS
-    while (dimension >> levels) > 8 and levels < MAX_LEVELS:
+    min_dimension = min(shape)
+    max_dimension = max(shape)
+
+    # Cap levels to ensure smallest region is at least 4x4
+    # (needed for filter boundary handling in compose)
+    max_safe_levels = int(np.log2(min_dimension / 4)) if min_dimension >= 4 else 1
+    max_safe_levels = max(1, max_safe_levels)
+
+    # Start at MIN_LEVELS but don't exceed safe maximum
+    levels = min(MIN_LEVELS, max_safe_levels)
+
+    # Increase if we have room and regions would still be > 8
+    while (max_dimension >> levels) > 8 and levels < MAX_LEVELS and levels < max_safe_levels:
         levels += 1
+
     return levels
 
 

@@ -40,4 +40,4 @@ def test_import_ui_image_viewer():
 def test_import_ui_image_list():
     """Test that ui.image_list imports without errors."""
     from focal.ui import image_list
-    from focal.ui.image_list import ImageListWidget
+    from focal.ui.image_list import ImageList
