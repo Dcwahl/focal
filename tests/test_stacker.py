@@ -211,11 +211,12 @@ class TestComplexWavelet:
 
     def test_levels_for_size(self):
         """Test level calculation for various image sizes."""
-        # Levels are capped to ensure smallest region is at least 4x4
-        assert complex_wavelet.levels_for_size((64, 64)) >= 3
-        assert complex_wavelet.levels_for_size((64, 64)) <= 4
-        assert complex_wavelet.levels_for_size((2048, 2048)) >= 5
-        assert complex_wavelet.levels_for_size((2048, 2048)) <= 10
+        # Aims for ~8 pixel image at lowest level
+        # 64x64: 64 >> 5 = 2, which is < 8, so stays at MIN_LEVELS=5
+        assert complex_wavelet.levels_for_size((64, 64)) == 5
+        # 2048x2048: 2048 >> 5 = 64 > 8, so keeps incrementing
+        # 2048 >> 8 = 8, so stops at 8 levels
+        assert complex_wavelet.levels_for_size((2048, 2048)) == 8
 
     def test_expand_to_valid_size(self):
         """Test image expansion to valid wavelet size."""
@@ -254,9 +255,10 @@ class TestComplexWavelet:
     def test_merge_selects_max_magnitude(self):
         """Test that merge picks higher magnitude coefficients."""
         # Create two images: one with high energy, one with low
-        high = np.ones((32, 32), dtype=np.float32) * 200
-        low = np.ones((32, 32), dtype=np.float32) * 50
-        levels = complex_wavelet.levels_for_size((32, 32))
+        # Use 64x64 to ensure valid size for 5 decomposition levels
+        high = np.ones((64, 64), dtype=np.float32) * 200
+        low = np.ones((64, 64), dtype=np.float32) * 50
+        levels = complex_wavelet.levels_for_size((64, 64))
         w_high = complex_wavelet.decompose(high, levels)
         w_low = complex_wavelet.decompose(low, levels)
         merged = complex_wavelet.merge_wavelets([w_high, w_low], consistency=0)

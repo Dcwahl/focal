@@ -32,22 +32,15 @@ MAX_LEVELS = 10
 
 
 def levels_for_size(shape: tuple[int, int]) -> int:
-    """Determine number of decomposition levels for given image size."""
-    min_dimension = min(shape)
-    max_dimension = max(shape)
+    """
+    Determine number of decomposition levels for given image size.
 
-    # Cap levels to ensure smallest region is at least 4x4
-    # (needed for filter boundary handling in compose)
-    max_safe_levels = int(np.log2(min_dimension / 4)) if min_dimension >= 4 else 1
-    max_safe_levels = max(1, max_safe_levels)
-
-    # Start at MIN_LEVELS but don't exceed safe maximum
-    levels = min(MIN_LEVELS, max_safe_levels)
-
-    # Increase if we have room and regions would still be > 8
-    while (max_dimension >> levels) > 8 and levels < MAX_LEVELS and levels < max_safe_levels:
+    Aims for ~8 pixel image at lowest level.
+    """
+    dimension = max(shape)
+    levels = MIN_LEVELS
+    while (dimension >> levels) > 8 and levels < MAX_LEVELS:
         levels += 1
-
     return levels
 
 
@@ -233,26 +226,39 @@ def merge_wavelets(
     Returns:
         Merged wavelet coefficients
     """
+    h, w = wavelets[0].shape[:2]
+
     result = wavelets[0].copy()
+    depth_map = np.zeros((h, w), dtype=np.uint16)
     max_absval = get_sq_absval(result)
 
-    for wavelet in wavelets[1:]:
+    # Select maximum magnitude wavelet at each position
+    for i, wavelet in enumerate(wavelets[1:], 1):
         absval = get_sq_absval(wavelet)
         mask = absval > max_absval
+
         result[mask] = wavelet[mask]
+        depth_map[mask] = i
         max_absval = np.maximum(max_absval, absval)
 
     if consistency >= 1:
-        _denoise_subbands(result, wavelets)
+        _denoise_subbands(result, depth_map, wavelets)
 
     if consistency >= 2:
-        _denoise_neighbours(result, wavelets)
+        _denoise_neighbours(result, depth_map, wavelets)
 
     return result
 
 
-def _denoise_subbands(result: np.ndarray, wavelets: list[np.ndarray]) -> None:
-    """Two-out-of-three voting across H/V/D subbands at each level."""
+def _denoise_subbands(
+    result: np.ndarray,
+    depth_map: np.ndarray,
+    wavelets: list[np.ndarray],
+) -> None:
+    """
+    Two-out-of-three voting across H/V/D subbands at each level.
+    Modifies result and depth_map in place.
+    """
     levels = levels_for_size(result.shape[:2])
 
     for level in range(levels):
@@ -261,47 +267,53 @@ def _denoise_subbands(result: np.ndarray, wavelets: list[np.ndarray]) -> None:
         w2 = w // 2
         h2 = h // 2
 
+        # Three subbands: horizontal, diagonal, vertical
         for y in range(h2):
             for x in range(w2):
-                # Get which source image each subband came from
-                absvals_h = [get_sq_absval(wv)[y, w2 + x] for wv in wavelets]
-                absvals_d = [get_sq_absval(wv)[h2 + y, w2 + x] for wv in wavelets]
-                absvals_v = [get_sq_absval(wv)[h2 + y, x] for wv in wavelets]
+                v1 = depth_map[y, w2 + x]           # Horizontal
+                v2 = depth_map[h2 + y, w2 + x]      # Diagonal
+                v3 = depth_map[h2 + y, x]           # Vertical
 
-                src_h = np.argmax(absvals_h)
-                src_d = np.argmax(absvals_d)
-                src_v = np.argmax(absvals_v)
-
-                if src_h == src_d == src_v:
+                if v1 == v2 == v3:
                     continue
-                elif src_d == src_v and src_h != src_d:
-                    result[y, w2 + x] = wavelets[src_d][y, w2 + x]
-                elif src_h == src_v and src_d != src_h:
-                    result[h2 + y, w2 + x] = wavelets[src_h][h2 + y, w2 + x]
-                elif src_h == src_d and src_v != src_h:
-                    result[h2 + y, x] = wavelets[src_h][h2 + y, x]
+                elif v2 == v3 and v1 != v2:
+                    depth_map[y, w2 + x] = v2
+                    result[y, w2 + x] = wavelets[v2][y, w2 + x]
+                elif v1 == v3 and v2 != v1:
+                    depth_map[h2 + y, w2 + x] = v1
+                    result[h2 + y, w2 + x] = wavelets[v1][h2 + y, w2 + x]
+                elif v1 == v2 and v3 != v1:
+                    depth_map[h2 + y, x] = v1
+                    result[h2 + y, x] = wavelets[v1][h2 + y, x]
 
 
-def _denoise_neighbours(result: np.ndarray, wavelets: list[np.ndarray]) -> None:
-    """Remove outlier pixels where all 4 neighbors agree on different source."""
-    h, w = result.shape[:2]
-
-    # Compute source indices for each pixel
-    all_absvals = np.stack([get_sq_absval(wv) for wv in wavelets], axis=0)
-    sources = np.argmax(all_absvals, axis=0)
+def _denoise_neighbours(
+    result: np.ndarray,
+    depth_map: np.ndarray,
+    wavelets: list[np.ndarray],
+) -> None:
+    """
+    Remove outlier pixels where all 4 neighbors agree on different value.
+    Modifies result and depth_map in place.
+    """
+    h, w = depth_map.shape
 
     for y in range(1, h - 1):
         for x in range(1, w - 1):
-            center = sources[y, x]
-            left = sources[y, x - 1]
-            right = sources[y, x + 1]
-            top = sources[y - 1, x]
-            bottom = sources[y + 1, x]
+            left = depth_map[y, x - 1]
+            right = depth_map[y, x + 1]
+            top = depth_map[y - 1, x]
+            bottom = depth_map[y + 1, x]
+            center = depth_map[y, x]
 
+            # Check if center is outlier (all neighbors above or below)
             if ((center > top and center > bottom and
                  center > left and center > right) or
                 (center < top and center < bottom and
                  center < left and center < right)):
+
+                # Replace with average of neighbors
                 avg = (int(top) + int(bottom) + int(left) + int(right) + 2) // 4
                 avg = min(avg, len(wavelets) - 1)
+                depth_map[y, x] = avg
                 result[y, x] = wavelets[avg][y, x]
