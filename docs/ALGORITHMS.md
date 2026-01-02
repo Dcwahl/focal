@@ -1,6 +1,6 @@
 # Stacking Algorithms
 
-Focal supports two focus stacking algorithms with different trade-offs.
+Focal currently supports two focus stacking algorithms with different trade-offs.
 
 ## Algorithm Comparison
 
@@ -89,6 +89,42 @@ Since wavelets operate on grayscale, colors must be recovered:
 - Handheld shots with slight movement between frames
 - Macro photography with focus breathing
 - Images with fine detail (hair, fabric, circuit boards)
+
+Example implementation: focus-stack (https://github.com/PetteriAimonen/focus-stack Petteri Aimonen C++)
+
+---
+
+## Areas with room for improvment
+  What's Working Well
+
+  The core algorithm port is solid - the wavelet transform, merge logic, and color reassignment are faithful to the C++ implementation. The fact that results are comparable to focus-stack validates that.
+
+  Areas for Improvement
+
+  1. Performance (the obvious one)
+
+  The wavelet transform is the bottleneck - those nested Python loops in _decompose_1d and _compose_1d are brutal. Options:
+  - Vectorize with NumPy (tricky due to the wrap-around indexing, but doable)
+  - Numba JIT compilation (probably easiest win)
+  - The C++ version has OpenCL acceleration we skipped entirely
+
+  2. We simplified the alignment
+
+  The C++ version does contrast correction AND white balance matching before geometric alignment. We just do the geometric part. For well-lit, consistent exposures this is fine. For auto-exposure stacks, results might suffer.
+
+  3. Memory
+
+  We load everything into memory. The C++ version's batch processing (--batchsize) was specifically designed to limit memory usage. For large stacks or high-res images, this could hurt.
+
+  Experimentation Opportunities
+
+  This is where Python actually shines over C++:
+
+  1. Different wavelets - We ported Complex Daubechies, but you could experiment with other families. PyWavelets has tons of options - might find something that works better for certain subjects.
+  2. The merge decision - We pick max magnitude, but what about weighted blending? Or ML-based focus detection? Python makes this easy to prototype.
+  3. Depth map work - We generate it but barely use it. The C++ has smoothing, inpainting, 3D preview... could be fun to explore or go a completely different direction.
+  4. Handling ghosting - Moving subjects between frames cause artifacts. This is a known limitation of the algorithm - could experiment with detection/mitigation.
+
 
 ---
 
