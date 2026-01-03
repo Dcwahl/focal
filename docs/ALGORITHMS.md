@@ -111,8 +111,11 @@ Example implementation: focus-stack (https://github.com/PetteriAimonen/focus-sta
 
   Remaining bottlenecks:
   - Alignment (ECC algorithm) - could explore GPU acceleration
-  - Color reassignment (`reassign.py`) - still pure Python loops
+  - ~~Color reassignment (`reassign.py`)~~ - **FIXED with Numba JIT!**
   - The C++ version has OpenCL acceleration we skipped entirely
+
+  Color reassignment now uses `build_color_map_fast` and `reassign_colors_fast` with `@njit`.
+  End-to-end stacking improved from ~34s to ~6.5s (~5x speedup).
 
   2. We simplified the alignment
 
