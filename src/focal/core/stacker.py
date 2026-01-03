@@ -9,7 +9,7 @@ import numpy as np
 from focal.core import complex_wavelet
 from focal.core.align import align_image
 from focal.core.grayscale import compute_pca_weights, to_grayscale
-from focal.core.reassign import build_color_map_fast, reassign_colors_fast
+from focal.core.reassign import build_color_map, reassign_colors
 
 
 class StackAlgorithm(Enum):
@@ -217,13 +217,13 @@ class FocusStacker:
         if progress_callback:
             progress_callback(70)
 
-        # Reassign colors using fast Numba implementation
-        gray_values, colors = build_color_map_fast(aligned_grays, aligned_colors)
+        # Reassign colors using color map
+        color_map = build_color_map(aligned_grays, aligned_colors)
 
         if progress_callback:
             progress_callback(85)
 
-        result = reassign_colors_fast(merged_gray, gray_values, colors)
+        result = reassign_colors(merged_gray, color_map)
 
         if progress_callback:
             progress_callback(95)
