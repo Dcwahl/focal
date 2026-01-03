@@ -333,13 +333,16 @@ class MainWindow(QMainWindow):
             filter="TIFF (*.tif);;JPEG (*.jpg);;PNG (*.png)"
         )
         if path:
-            # Add extension if not present
-            if selected_filter == "TIFF (*.tif)" and not path.endswith('.tif'):
-                path += '.tif'
-            elif selected_filter == "JPEG (*.jpg)" and not path.endswith('.jpg'):
-                path += '.jpg'
-            elif selected_filter == "PNG (*.png)" and not path.endswith('.png'):
-                path += '.png'
+            # Add extension if not present (handle common variants)
+            if selected_filter == "TIFF (*.tif)":
+                if not (path.endswith('.tif') or path.endswith('.tiff')):
+                    path += '.tif'
+            elif selected_filter == "JPEG (*.jpg)":
+                if not (path.endswith('.jpg') or path.endswith('.jpeg')):
+                    path += '.jpg'
+            elif selected_filter == "PNG (*.png)":
+                if not path.endswith('.png'):
+                    path += '.png'
 
             cv2.imwrite(path, self.edited_result)
 

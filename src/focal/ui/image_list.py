@@ -13,6 +13,7 @@ class ImageList(QListWidget):
         super().__init__()
         self.images: list[Path] = []
         self.itemClicked.connect(self._on_item_clicked)
+        self.currentRowChanged.connect(self._on_row_changed)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
 
@@ -30,6 +31,11 @@ class ImageList(QListWidget):
         idx = self.row(item)
         if 0 <= idx < len(self.images):
             self.image_selected.emit(self.images[idx])
+
+    def _on_row_changed(self, row: int):
+        """Handle arrow key navigation."""
+        if 0 <= row < len(self.images):
+            self.image_selected.emit(self.images[row])
 
     def _show_context_menu(self, pos):
         """Show context menu for image removal."""

@@ -15,9 +15,10 @@ Common artifacts that need manual fixing:
 ## Features
 
 ### 1. Source Frame Selector
-- Dropdown or slider showing all loaded images
-- Also shows any alternate stacks (substacks)
-- Keyboard shortcuts to quickly scrub through frames
+- Sidebar list shows all loaded images (click to select)
+- Keyboard shortcuts to quickly scrub through frames (future: arrow keys)
+
+Note: Originally planned a top-bar dropdown, but sidebar selection proved sufficient and less cluttered.
 
 ### 2. Flash Compare
 - Hold a key to see currently-selected source frame
