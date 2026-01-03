@@ -101,11 +101,17 @@ Example implementation: focus-stack (https://github.com/PetteriAimonen/focus-sta
 
   Areas for Improvement
 
-  1. Performance (the obvious one)
+  1. Performance
 
-  The wavelet transform is the bottleneck - those nested Python loops in _decompose_1d and _compose_1d are brutal. Options:
-  - Vectorize with NumPy (tricky due to the wrap-around indexing, but doable)
-  - Numba JIT compilation (probably easiest win)
+  ~~The wavelet transform was the bottleneck~~ - **FIXED with Numba JIT!**
+
+  The `_decompose_1d` and `_compose_1d` functions now use `@njit` decorators, achieving ~450x speedup:
+  - Decompose (1024x768, 3 images): 24s → 0.05s
+  - Compose: 8s → 0.02s
+
+  Remaining bottlenecks:
+  - Alignment (ECC algorithm) - could explore GPU acceleration
+  - Color reassignment (`reassign.py`) - still pure Python loops
   - The C++ version has OpenCL acceleration we skipped entirely
 
   2. We simplified the alignment

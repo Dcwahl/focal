@@ -5,6 +5,7 @@ Ported from py-focus-stack, which ported from focus-stack C++ implementation.
 Reference: "Image Processing with Complex Daubechies Wavelets", J.M. Lina, 1997
 """
 import numpy as np
+from numba import njit
 
 # Complex Daubechies wavelet filter coefficients
 # Each pair is (real, imaginary)
@@ -55,8 +56,11 @@ def expand_to_valid_size(shape: tuple[int, int], levels: int) -> tuple[int, int]
     return (h, w)
 
 
-def _decompose_1d(src: np.ndarray, vertical: bool) -> np.ndarray:
-    """1D wavelet decomposition along one axis."""
+@njit(cache=True)
+def _decompose_1d_jit(src: np.ndarray, vertical: bool, lopass: np.ndarray, hipass: np.ndarray) -> np.ndarray:
+    """1D wavelet decomposition along one axis (JIT-compiled)."""
+    filter_len = 6
+
     if vertical:
         length = src.shape[0]
         count = src.shape[1]
@@ -72,38 +76,54 @@ def _decompose_1d(src: np.ndarray, vertical: bool) -> np.ndarray:
             re_lo, im_lo = 0.0, 0.0
             re_hi, im_hi = 0.0, 0.0
 
-            for j in range(FILTER_LEN):
-                pos = y + j - FILTER_LEN // 2
+            for j in range(filter_len):
+                pos = y + j - filter_len // 2
                 if pos < 0:
                     pos = length + pos
                 if pos >= length:
                     pos = pos - length
 
                 if vertical:
-                    val = src[pos, x]
+                    val_re = src[pos, x, 0]
+                    val_im = src[pos, x, 1]
                 else:
-                    val = src[x, pos]
+                    val_re = src[x, pos, 0]
+                    val_im = src[x, pos, 1]
 
-                lo = LOPASS[j]
-                hi = HIPASS[j]
+                lo_re = lopass[j, 0]
+                lo_im = lopass[j, 1]
+                hi_re = hipass[j, 0]
+                hi_im = hipass[j, 1]
 
-                re_lo += val[0] * lo[0] - val[1] * lo[1]
-                im_lo += val[1] * lo[0] + val[0] * lo[1]
-                re_hi += val[0] * hi[0] - val[1] * hi[1]
-                im_hi += val[1] * hi[0] + val[0] * hi[1]
+                re_lo += val_re * lo_re - val_im * lo_im
+                im_lo += val_im * lo_re + val_re * lo_im
+                re_hi += val_re * hi_re - val_im * hi_im
+                im_hi += val_im * hi_re + val_re * hi_im
 
             if vertical:
-                dest[y // 2, x] = [re_lo, im_lo]
-                dest[y // 2 + halflen, x] = [re_hi, im_hi]
+                dest[y // 2, x, 0] = re_lo
+                dest[y // 2, x, 1] = im_lo
+                dest[y // 2 + halflen, x, 0] = re_hi
+                dest[y // 2 + halflen, x, 1] = im_hi
             else:
-                dest[x, y // 2] = [re_lo, im_lo]
-                dest[x, y // 2 + halflen] = [re_hi, im_hi]
+                dest[x, y // 2, 0] = re_lo
+                dest[x, y // 2, 1] = im_lo
+                dest[x, y // 2 + halflen, 0] = re_hi
+                dest[x, y // 2 + halflen, 1] = im_hi
 
     return dest
 
 
-def _compose_1d(src: np.ndarray, vertical: bool) -> np.ndarray:
-    """1D wavelet composition (inverse of decompose_1d)."""
+def _decompose_1d(src: np.ndarray, vertical: bool) -> np.ndarray:
+    """1D wavelet decomposition along one axis."""
+    return _decompose_1d_jit(src, vertical, LOPASS, HIPASS)
+
+
+@njit(cache=True)
+def _compose_1d_jit(src: np.ndarray, vertical: bool, lopass: np.ndarray, hipass: np.ndarray) -> np.ndarray:
+    """1D wavelet composition (inverse of decompose_1d) (JIT-compiled)."""
+    filter_len = 6
+
     if vertical:
         length = src.shape[0]
         count = src.shape[1]
@@ -118,34 +138,47 @@ def _compose_1d(src: np.ndarray, vertical: bool) -> np.ndarray:
         for y in range(length):
             re, im = 0.0, 0.0
 
-            for j in range((y + FILTER_LEN // 2) % 2, FILTER_LEN, 2):
-                pos = (y - j + FILTER_LEN // 2) // 2
+            for j in range((y + filter_len // 2) % 2, filter_len, 2):
+                pos = (y - j + filter_len // 2) // 2
                 if pos < 0:
                     pos = halflen + pos
                 if pos >= halflen:
                     pos = pos - halflen
 
                 if vertical:
-                    val_lo = src[pos, x]
-                    val_hi = src[pos + halflen, x]
+                    val_lo_re = src[pos, x, 0]
+                    val_lo_im = src[pos, x, 1]
+                    val_hi_re = src[pos + halflen, x, 0]
+                    val_hi_im = src[pos + halflen, x, 1]
                 else:
-                    val_lo = src[x, pos]
-                    val_hi = src[x, pos + halflen]
+                    val_lo_re = src[x, pos, 0]
+                    val_lo_im = src[x, pos, 1]
+                    val_hi_re = src[x, pos + halflen, 0]
+                    val_hi_im = src[x, pos + halflen, 1]
 
-                lo = LOPASS[j]
-                hi = HIPASS[j]
+                lo_re = lopass[j, 0]
+                lo_im = lopass[j, 1]
+                hi_re = hipass[j, 0]
+                hi_im = hipass[j, 1]
 
-                re += val_lo[0] * lo[0] + val_hi[0] * hi[0]
-                re += val_lo[1] * lo[1] + val_hi[1] * hi[1]
-                im += val_lo[1] * lo[0] + val_hi[1] * hi[0]
-                im -= val_lo[0] * lo[1] + val_hi[0] * hi[1]
+                re += val_lo_re * lo_re + val_hi_re * hi_re
+                re += val_lo_im * lo_im + val_hi_im * hi_im
+                im += val_lo_im * lo_re + val_hi_im * hi_re
+                im -= val_lo_re * lo_im + val_hi_re * hi_im
 
             if vertical:
-                dest[y, x] = [re, im]
+                dest[y, x, 0] = re
+                dest[y, x, 1] = im
             else:
-                dest[x, y] = [re, im]
+                dest[x, y, 0] = re
+                dest[x, y, 1] = im
 
     return dest
+
+
+def _compose_1d(src: np.ndarray, vertical: bool) -> np.ndarray:
+    """1D wavelet composition (inverse of decompose_1d)."""
+    return _compose_1d_jit(src, vertical, LOPASS, HIPASS)
 
 
 def _decompose_level(input_arr: np.ndarray) -> np.ndarray:
