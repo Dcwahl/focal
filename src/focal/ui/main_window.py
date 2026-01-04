@@ -14,6 +14,7 @@ import numpy as np
 from focal.ui.image_list import ImageList
 from focal.ui.image_viewer import ImageViewer
 from focal.core.stacker import FocusStacker, StackAlgorithm
+from focal.core.image_cache import ImageCache, CacheKey
 
 
 class BrushStroke:
@@ -57,7 +58,7 @@ class MainWindow(QMainWindow):
         self.images: list[Path] = []
         self.result_image: np.ndarray | None = None
         self.edited_result: np.ndarray | None = None  # Result with brush edits applied
-        self.source_arrays: dict[int, np.ndarray] = {}  # Cached source images
+        self._cache = ImageCache()  # LRU cache for source images
         self.stacker = FocusStacker()
         self.worker: StackWorker | None = None
         self.current_source_index: int = 0
@@ -256,7 +257,7 @@ class MainWindow(QMainWindow):
         self.edited_result = None
         self.save_btn.setEnabled(False)
         self.brush_btn.setEnabled(False)
-        self.source_arrays.clear()
+        self._cache.clear()
 
         # Clear undo/redo stacks
         self._undo_stack.clear()
@@ -391,13 +392,23 @@ class MainWindow(QMainWindow):
             self.result_viewer.set_brush_mode(True, value)
 
     def _get_source_array(self, index: int) -> np.ndarray | None:
-        """Get source image as numpy array, caching for performance."""
-        if index not in self.source_arrays:
-            if 0 <= index < len(self.images):
-                img = cv2.imread(str(self.images[index]))
-                if img is not None:
-                    self.source_arrays[index] = img
-        return self.source_arrays.get(index)
+        """Get source image, loading from disk if not cached."""
+        if not (0 <= index < len(self.images)):
+            return None
+
+        path = self.images[index]
+        key = CacheKey("source", str(path))
+
+        # Try cache first
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+
+        # Load from disk and cache
+        img = cv2.imread(str(path))
+        if img is not None:
+            self._cache.put(key, img)
+        return img
 
     def _apply_brush_stroke(self, img_x: int, img_y: int, record_undo: bool = True):
         """Apply brush stroke: copy pixels from source to result with feathered edges."""
@@ -573,17 +584,8 @@ class MainWindow(QMainWindow):
         """Remove an image from the stack."""
         if 0 <= index < len(self.images):
             removed_path = self.images.pop(index)
-            # Clear cache if present
-            if index in self.source_arrays:
-                del self.source_arrays[index]
-            # Rebuild cache keys (shift indices)
-            new_cache = {}
-            for k, v in self.source_arrays.items():
-                if k > index:
-                    new_cache[k - 1] = v
-                else:
-                    new_cache[k] = v
-            self.source_arrays = new_cache
+            # Invalidate cache entry for removed image
+            self._cache.invalidate(CacheKey("source", str(removed_path)))
 
             # Update UI
             self.image_list.set_images(self.images)
