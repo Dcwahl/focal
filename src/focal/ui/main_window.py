@@ -13,6 +13,7 @@ import numpy as np
 
 from focal.ui.image_list import ImageList
 from focal.ui.image_viewer import ImageViewer
+from focal.ui.substack_list import SubstackList, Substack
 from focal.core.stacker import FocusStacker, StackAlgorithm
 from focal.core.image_cache import ImageCache, CacheKey
 
@@ -74,6 +75,9 @@ class MainWindow(QMainWindow):
         self._redo_stack: list[BrushStroke] = []
         self._current_stroke: BrushStroke | None = None
 
+        # Substack state
+        self.current_paint_source: int | Substack | None = None  # Frame index or Substack
+
         self._setup_ui()
         self._setup_shortcuts()
 
@@ -126,6 +130,25 @@ class MainWindow(QMainWindow):
         self.brush_size_label = QLabel("30")
         self.brush_size_label.setFixedWidth(25)
         top_bar.addWidget(self.brush_size_label)
+
+        # Separator
+        separator = QFrame()
+        separator.setFrameShape(QFrame.VLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        top_bar.addWidget(separator)
+
+        # Substack controls
+        self.create_substack_btn = QPushButton("Create Substack")
+        self.create_substack_btn.setToolTip("Stack selected frames (select 2+ frames with checkboxes)")
+        self.create_substack_btn.clicked.connect(self._create_substack)
+        self.create_substack_btn.setEnabled(False)
+        top_bar.addWidget(self.create_substack_btn)
+
+        self.substack_progress = QProgressBar()
+        self.substack_progress.setFixedWidth(80)
+        self.substack_progress.setFixedHeight(16)
+        self.substack_progress.setVisible(False)
+        top_bar.addWidget(self.substack_progress)
 
         top_bar.addStretch()
 
@@ -183,10 +206,29 @@ class MainWindow(QMainWindow):
         result_layout.addWidget(self.result_viewer, stretch=1)
         splitter.addWidget(result_container)
 
+        # Sidebar container for image list and substack list
+        sidebar = QWidget()
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.setSpacing(0)
+
+        # Sources header
+        sources_header = QLabel("Sources")
+        sources_header.setStyleSheet("font-weight: bold; padding: 4px;")
+        sidebar_layout.addWidget(sources_header)
+
         self.image_list = ImageList()
         self.image_list.image_selected.connect(self._on_image_selected)
         self.image_list.image_remove_requested.connect(self._remove_image)
-        splitter.addWidget(self.image_list)
+        self.image_list.selection_changed.connect(self._on_frame_selection_changed)
+        sidebar_layout.addWidget(self.image_list, stretch=2)
+
+        # Substack list
+        self.substack_list = SubstackList()
+        self.substack_list.substack_selected.connect(self._on_substack_selected)
+        sidebar_layout.addWidget(self.substack_list, stretch=1)
+
+        splitter.addWidget(sidebar)
 
         splitter.setSizes([400, 400, 200])
         layout.addWidget(splitter, stretch=1)
@@ -259,6 +301,10 @@ class MainWindow(QMainWindow):
         self.brush_btn.setEnabled(False)
         self._cache.clear()
 
+        # Clear substacks
+        self.substack_list.clear()
+        self.current_paint_source = 0 if self.images else None
+
         # Clear undo/redo stacks
         self._undo_stack.clear()
         self._redo_stack.clear()
@@ -273,6 +319,9 @@ class MainWindow(QMainWindow):
         try:
             idx = self.images.index(path)
             self.current_source_index = idx
+            # Set as current paint source and deselect any substack
+            self.current_paint_source = idx
+            self.substack_list.deselect()
         except ValueError:
             pass
         # Preserve zoom when switching source frames
@@ -350,10 +399,12 @@ class MainWindow(QMainWindow):
     def keyPressEvent(self, event):
         """Handle key press - S for flash compare, Ctrl+/- for zoom."""
         if event.key() == Qt.Key_S and not event.isAutoRepeat():
-            if self.result_image is not None and self.images:
+            if self.result_image is not None and self.current_paint_source is not None:
                 self._flash_active = True
-                # Show current source in the result panel, preserving zoom
-                self.result_viewer.load_image(self.images[self.current_source_index], preserve_zoom=True)
+                # Show current paint source (frame or substack) in result panel
+                paint_source = self._get_paint_source_array()
+                if paint_source is not None:
+                    self.result_viewer.load_array(paint_source, preserve_zoom=True)
         elif event.modifiers() == Qt.ControlModifier:
             if event.key() in (Qt.Key_Plus, Qt.Key_Equal):
                 # Ctrl++ or Ctrl+= (= is on same key as +)
@@ -411,11 +462,11 @@ class MainWindow(QMainWindow):
         return img
 
     def _apply_brush_stroke(self, img_x: int, img_y: int, record_undo: bool = True):
-        """Apply brush stroke: copy pixels from source to result with feathered edges."""
+        """Apply brush stroke: copy pixels from paint source to result with feathered edges."""
         if self.edited_result is None:
             return
 
-        source = self._get_source_array(self.current_source_index)
+        source = self._get_paint_source_array()
         if source is None:
             return
 
@@ -597,3 +648,86 @@ class MainWindow(QMainWindow):
                 self.current_source_index = new_index
                 self.image_list.setCurrentRow(new_index)
                 self.source_viewer.load_image(self.images[new_index], preserve_zoom=True)
+
+    # --- Substack methods ---
+
+    def _on_frame_selection_changed(self, selected: set):
+        """Handle checkbox selection changes in frame list."""
+        # Enable Create Substack button when 2+ frames selected
+        self.create_substack_btn.setEnabled(len(selected) >= 2)
+
+    def _on_substack_selected(self, substack: Substack | None):
+        """Handle substack selection from substack list."""
+        if substack is not None:
+            self.current_paint_source = substack
+            # Update source viewer to show first frame of substack
+            if substack.frame_indices and 0 <= substack.frame_indices[0] < len(self.images):
+                self.source_viewer.load_image(
+                    self.images[substack.frame_indices[0]], preserve_zoom=True
+                )
+
+    def _create_substack(self):
+        """Create a substack from selected frames."""
+        selected = self.image_list.get_selected_indices()
+        if len(selected) < 2:
+            return
+
+        frame_indices = tuple(selected)
+
+        # Show progress
+        self.substack_progress.setVisible(True)
+        self.substack_progress.setValue(0)
+        self.create_substack_btn.setEnabled(False)
+
+        # Compute substack (blocking, but substacks are small/fast)
+        def progress_callback(value: int):
+            self.substack_progress.setValue(value)
+            # Process events to update UI
+            from PySide6.QtWidgets import QApplication
+            QApplication.processEvents()
+
+        result = self._compute_substack(frame_indices, progress_callback)
+
+        self.substack_progress.setVisible(False)
+        self.create_substack_btn.setEnabled(True)
+
+        if result is not None:
+            # Cache the result
+            display_name = Substack.create_display_name(frame_indices)
+            substack = Substack(frame_indices=frame_indices, display_name=display_name)
+            self._cache.put(substack.cache_key, result)
+
+            # Add to list (auto-selects it)
+            self.substack_list.add_substack(substack)
+
+            # Clear frame selection
+            self.image_list.clear_selection()
+
+    def _compute_substack(
+        self, frame_indices: tuple[int, ...], progress_callback=None
+    ) -> np.ndarray | None:
+        """Stack a subset of frames."""
+        paths = [self.images[i] for i in frame_indices if 0 <= i < len(self.images)]
+        if len(paths) < 2:
+            return None
+        return self.stacker.stack(paths, progress_callback=progress_callback)
+
+    def _get_paint_source_array(self) -> np.ndarray | None:
+        """Get current paint source (frame or substack)."""
+        if isinstance(self.current_paint_source, Substack):
+            return self._get_substack_array(self.current_paint_source)
+        elif isinstance(self.current_paint_source, int):
+            return self._get_source_array(self.current_paint_source)
+        return None
+
+    def _get_substack_array(self, substack: Substack) -> np.ndarray | None:
+        """Get substack result, recomputing if evicted from cache."""
+        cached = self._cache.get(substack.cache_key)
+        if cached is not None:
+            return cached
+
+        # Recompute (blocking, ~1-2s for small substacks)
+        result = self._compute_substack(substack.frame_indices)
+        if result is not None:
+            self._cache.put(substack.cache_key, result)
+        return result
