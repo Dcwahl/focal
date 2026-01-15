@@ -31,6 +31,9 @@ class FocusStacker:
         self.num_levels = num_levels
         self.kernel_size = kernel_size
         self.consistency = consistency  # For complex_wavelet denoising (0-2)
+        # Per-frame alignment transforms from last stack (frame_index -> 2x3 matrix)
+        # Transform maps source frame to reference frame coordinate space
+        self.last_transforms: dict[int, np.ndarray] = {}
 
     def stack(
         self,
@@ -184,15 +187,23 @@ class FocusStacker:
         aligned_colors = []
         aligned_grays = []
 
+        # Clear previous transforms and store new ones
+        self.last_transforms.clear()
+
         for i, (gray, color) in enumerate(zip(grayscales, expanded_images)):
             if i == ref_idx:
                 aligned_colors.append(color)
                 aligned_grays.append(gray)
+                # Reference frame has identity transform
+                self.last_transforms[i] = np.eye(2, 3, dtype=np.float32)
             else:
-                aligned_color = align_image(ref_gray, ref_color, gray, color)
+                aligned_color, transform = align_image(
+                    ref_gray, ref_color, gray, color, return_transform=True
+                )
                 aligned_gray = to_grayscale(aligned_color, pca_weights)
                 aligned_colors.append(aligned_color)
                 aligned_grays.append(aligned_gray)
+                self.last_transforms[i] = transform
             if progress_callback:
                 progress_callback(20 + int((i + 1) / len(grayscales) * 20))
 

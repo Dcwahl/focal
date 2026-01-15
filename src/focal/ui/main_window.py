@@ -16,6 +16,8 @@ from focal.ui.image_viewer import ImageViewer
 from focal.ui.substack_list import SubstackList, Substack
 from focal.core.stacker import FocusStacker, StackAlgorithm
 from focal.core.image_cache import ImageCache, CacheKey
+from focal.core.align import compute_transform, invert_transform
+from focal.core.grayscale import compute_pca_weights, to_grayscale
 
 
 class BrushStroke:
@@ -25,7 +27,8 @@ class BrushStroke:
         self.source_index = source_index
         self.brush_size = brush_size
         # Store the original pixels before this stroke was applied
-        self.original_pixels: dict[tuple[int, int], np.ndarray] = {}
+        # Maps (x, y) -> (bounds, pixels) where bounds is (y_start, y_end, x_start, x_end)
+        self.original_pixels: dict[tuple[int, int], tuple[tuple[int, int, int, int], np.ndarray]] = {}
 
 
 class StackWorker(QThread):
@@ -77,6 +80,12 @@ class MainWindow(QMainWindow):
 
         # Substack state
         self.current_paint_source: int | Substack | None = None  # Frame index or Substack
+
+        # Alignment transforms for brush coordinate mapping
+        # Maps frame index -> 2x3 affine transform (source -> result space)
+        self._frame_transforms: dict[int, np.ndarray] = {}
+        # Maps substack frame_indices tuple -> 2x3 affine transform (substack -> result space)
+        self._substack_transforms: dict[tuple[int, ...], np.ndarray] = {}
 
         self._setup_ui()
         self._setup_shortcuts()
@@ -359,6 +368,10 @@ class MainWindow(QMainWindow):
         self.save_btn.setEnabled(True)
         self.brush_btn.setEnabled(True)
 
+        # Store alignment transforms from stacker (for brush coordinate mapping)
+        self._frame_transforms = self.stacker.last_transforms.copy()
+        self._substack_transforms.clear()
+
         # Clear undo/redo stacks for new stack result
         self._undo_stack.clear()
         self._redo_stack.clear()
@@ -471,15 +484,38 @@ class MainWindow(QMainWindow):
             return
 
         h, w = self.edited_result.shape[:2]
+        src_h, src_w = source.shape[:2]
         radius = self.brush_size // 2
 
-        # Calculate bounds in image coordinates
+        # Get alignment transform and compute source coordinates
+        # Transform maps source -> result, so we need inverse (result -> source)
+        transform = self._get_paint_source_transform()
+        if transform is not None:
+            inv_transform = invert_transform(transform)
+            # Transform brush center from result space to source space
+            result_pt = np.array([[img_x, img_y]], dtype=np.float32)
+            source_pt = cv2.transform(result_pt.reshape(1, -1, 2), inv_transform)
+            src_x = int(round(source_pt[0, 0, 0]))
+            src_y = int(round(source_pt[0, 0, 1]))
+        else:
+            # No transform available, use same coordinates
+            src_x, src_y = img_x, img_y
+
+        # Calculate bounds in result image coordinates (where we write)
         y_start = max(0, img_y - radius)
         y_end = min(h, img_y + radius + 1)
         x_start = max(0, img_x - radius)
         x_end = min(w, img_x + radius + 1)
 
+        # Calculate corresponding bounds in source image (where we read)
+        src_y_start = max(0, src_y - radius)
+        src_y_end = min(src_h, src_y + radius + 1)
+        src_x_start = max(0, src_x - radius)
+        src_x_end = min(src_w, src_x + radius + 1)
+
         if y_start >= y_end or x_start >= x_end:
+            return
+        if src_y_start >= src_y_end or src_x_start >= src_x_end:
             return
 
         # Create feathered circular mask with alpha falloff
@@ -490,30 +526,64 @@ class MainWindow(QMainWindow):
         inner_radius = radius * 0.6
         alpha = np.clip((radius - dist) / (radius - inner_radius), 0, 1)
 
-        # Calculate corresponding bounds in mask
+        # Calculate corresponding bounds in mask for result region
         mask_y_start = max(0, radius - img_y)
         mask_y_end = alpha.shape[0] - max(0, img_y + radius + 1 - h)
         mask_x_start = max(0, radius - img_x)
         mask_x_end = alpha.shape[1] - max(0, img_x + radius + 1 - w)
 
-        alpha_slice = alpha[mask_y_start:mask_y_end, mask_x_start:mask_x_end]
+        # Calculate corresponding bounds in mask for source region
+        src_mask_y_start = max(0, radius - src_y)
+        src_mask_y_end = alpha.shape[0] - max(0, src_y + radius + 1 - src_h)
+        src_mask_x_start = max(0, radius - src_x)
+        src_mask_x_end = alpha.shape[1] - max(0, src_x + radius + 1 - src_w)
+
+        # Compute the overlap region in mask coordinates
+        overlap_y_start = max(mask_y_start, src_mask_y_start)
+        overlap_y_end = min(mask_y_end, src_mask_y_end)
+        overlap_x_start = max(mask_x_start, src_mask_x_start)
+        overlap_x_end = min(mask_x_end, src_mask_x_end)
+
+        if overlap_y_start >= overlap_y_end or overlap_x_start >= overlap_x_end:
+            return
+
+        alpha_slice = alpha[overlap_y_start:overlap_y_end, overlap_x_start:overlap_x_end]
+
+        # Convert mask overlap back to image coordinates
+        result_y_start = y_start + (overlap_y_start - mask_y_start)
+        result_y_end = result_y_start + (overlap_y_end - overlap_y_start)
+        result_x_start = x_start + (overlap_x_start - mask_x_start)
+        result_x_end = result_x_start + (overlap_x_end - overlap_x_start)
+
+        source_y_start = src_y_start + (overlap_y_start - src_mask_y_start)
+        source_y_end = source_y_start + (overlap_y_end - overlap_y_start)
+        source_x_start = src_x_start + (overlap_x_start - src_mask_x_start)
+        source_x_end = source_x_start + (overlap_x_end - overlap_x_start)
 
         # Store original pixels for undo (only pixels we're actually changing)
         if record_undo and self._current_stroke is not None:
             key = (img_x, img_y)
             if key not in self._current_stroke.original_pixels:
-                # Store original region before modification
-                self._current_stroke.original_pixels[key] = self.edited_result[
-                    y_start:y_end, x_start:x_end
+                # Store bounds and original region before modification
+                bounds = (result_y_start, result_y_end, result_x_start, result_x_end)
+                pixels = self.edited_result[
+                    result_y_start:result_y_end, result_x_start:result_x_end
                 ].copy()
+                self._current_stroke.original_pixels[key] = (bounds, pixels)
             self._current_stroke.points.append(key)
 
         # Apply alpha-blended copy from source to result
         for c in range(3):
-            result_region = self.edited_result[y_start:y_end, x_start:x_end, c].astype(np.float32)
-            source_region = source[y_start:y_end, x_start:x_end, c].astype(np.float32)
+            result_region = self.edited_result[
+                result_y_start:result_y_end, result_x_start:result_x_end, c
+            ].astype(np.float32)
+            source_region = source[
+                source_y_start:source_y_end, source_x_start:source_x_end, c
+            ].astype(np.float32)
             blended = result_region * (1 - alpha_slice) + source_region * alpha_slice
-            self.edited_result[y_start:y_end, x_start:x_end, c] = blended.astype(np.uint8)
+            self.edited_result[
+                result_y_start:result_y_end, result_x_start:result_x_end, c
+            ] = blended.astype(np.uint8)
 
     def on_brush_paint(self, img_x: int, img_y: int):
         """Called from result_viewer when painting occurs."""
@@ -544,23 +614,13 @@ class MainWindow(QMainWindow):
 
         # Store current state for redo
         redo_pixels = {}
-        for (x, y), orig in stroke.original_pixels.items():
-            h, w = self.edited_result.shape[:2]
-            radius = stroke.brush_size // 2
-            y_start = max(0, y - radius)
-            y_end = min(h, y + radius + 1)
-            x_start = max(0, x - radius)
-            x_end = min(w, x + radius + 1)
-            redo_pixels[(x, y)] = self.edited_result[y_start:y_end, x_start:x_end].copy()
+        for (x, y), (bounds, orig) in stroke.original_pixels.items():
+            y_start, y_end, x_start, x_end = bounds
+            redo_pixels[(x, y)] = (bounds, self.edited_result[y_start:y_end, x_start:x_end].copy())
 
         # Restore original pixels
-        for (x, y), orig in stroke.original_pixels.items():
-            h, w = self.edited_result.shape[:2]
-            radius = stroke.brush_size // 2
-            y_start = max(0, y - radius)
-            y_end = min(h, y + radius + 1)
-            x_start = max(0, x - radius)
-            x_end = min(w, x + radius + 1)
+        for (x, y), (bounds, orig) in stroke.original_pixels.items():
+            y_start, y_end, x_start, x_end = bounds
             self.edited_result[y_start:y_end, x_start:x_end] = orig
 
         # Save for redo with swapped pixels
@@ -578,23 +638,13 @@ class MainWindow(QMainWindow):
 
         # Store current state for undo
         undo_pixels = {}
-        for (x, y), redo_state in stroke.original_pixels.items():
-            h, w = self.edited_result.shape[:2]
-            radius = stroke.brush_size // 2
-            y_start = max(0, y - radius)
-            y_end = min(h, y + radius + 1)
-            x_start = max(0, x - radius)
-            x_end = min(w, x + radius + 1)
-            undo_pixels[(x, y)] = self.edited_result[y_start:y_end, x_start:x_end].copy()
+        for (x, y), (bounds, redo_state) in stroke.original_pixels.items():
+            y_start, y_end, x_start, x_end = bounds
+            undo_pixels[(x, y)] = (bounds, self.edited_result[y_start:y_end, x_start:x_end].copy())
 
         # Apply redo (restore the painted state)
-        for (x, y), redo_state in stroke.original_pixels.items():
-            h, w = self.edited_result.shape[:2]
-            radius = stroke.brush_size // 2
-            y_start = max(0, y - radius)
-            y_end = min(h, y + radius + 1)
-            x_start = max(0, x - radius)
-            x_end = min(w, x + radius + 1)
+        for (x, y), (bounds, redo_state) in stroke.original_pixels.items():
+            y_start, y_end, x_start, x_end = bounds
             self.edited_result[y_start:y_end, x_start:x_end] = redo_state
 
         # Swap pixels for next undo
@@ -697,6 +747,10 @@ class MainWindow(QMainWindow):
             substack = Substack(frame_indices=frame_indices, display_name=display_name)
             self._cache.put(substack.cache_key, result)
 
+            # Compute alignment from substack to main result for brush coordinate mapping
+            if self.result_image is not None:
+                self._compute_substack_alignment(substack, result)
+
             # Add to list (auto-selects it)
             self.substack_list.add_substack(substack)
 
@@ -712,12 +766,37 @@ class MainWindow(QMainWindow):
             return None
         return self.stacker.stack(paths, progress_callback=progress_callback)
 
+    def _compute_substack_alignment(
+        self, substack: Substack, substack_image: np.ndarray
+    ) -> None:
+        """Compute and store alignment transform from substack to main result."""
+        if self.result_image is None:
+            return
+
+        # Convert both to grayscale for alignment
+        # Use PCA weights from the result for consistent grayscale
+        result_pca = compute_pca_weights(self.result_image)
+        result_gray = to_grayscale(self.result_image, result_pca)
+        substack_gray = to_grayscale(substack_image, result_pca)
+
+        # Compute transform: substack -> result
+        transform = compute_transform(result_gray, substack_gray)
+        self._substack_transforms[substack.frame_indices] = transform
+
     def _get_paint_source_array(self) -> np.ndarray | None:
         """Get current paint source (frame or substack)."""
         if isinstance(self.current_paint_source, Substack):
             return self._get_substack_array(self.current_paint_source)
         elif isinstance(self.current_paint_source, int):
             return self._get_source_array(self.current_paint_source)
+        return None
+
+    def _get_paint_source_transform(self) -> np.ndarray | None:
+        """Get alignment transform for current paint source (source -> result space)."""
+        if isinstance(self.current_paint_source, Substack):
+            return self._substack_transforms.get(self.current_paint_source.frame_indices)
+        elif isinstance(self.current_paint_source, int):
+            return self._frame_transforms.get(self.current_paint_source)
         return None
 
     def _get_substack_array(self, substack: Substack) -> np.ndarray | None:

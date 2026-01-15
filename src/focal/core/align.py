@@ -3,6 +3,19 @@ import numpy as np
 import cv2
 
 
+def invert_transform(transform: np.ndarray) -> np.ndarray:
+    """
+    Invert a 2x3 affine transformation matrix.
+
+    Args:
+        transform: 2x3 affine matrix (src -> ref)
+
+    Returns:
+        2x3 inverse affine matrix (ref -> src)
+    """
+    return cv2.invertAffineTransform(transform)
+
+
 def compute_transform(
     ref_gray: np.ndarray,
     src_gray: np.ndarray,
@@ -72,7 +85,8 @@ def align_image(
     src_gray: np.ndarray,
     src_color: np.ndarray,
     transform: np.ndarray | None = None,
-) -> np.ndarray:
+    return_transform: bool = False,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
     """
     Align source image to reference.
 
@@ -82,9 +96,10 @@ def align_image(
         src_gray: Source grayscale image
         src_color: Source color image to warp
         transform: Optional pre-computed transform matrix
+        return_transform: If True, return (aligned_image, transform) tuple
 
     Returns:
-        Aligned color image
+        Aligned color image, or (aligned_image, transform) if return_transform=True
     """
     if transform is None:
         # Rough alignment first
@@ -102,4 +117,6 @@ def align_image(
         borderMode=cv2.BORDER_REFLECT
     )
 
+    if return_transform:
+        return aligned, transform
     return aligned

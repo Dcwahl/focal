@@ -1,30 +1,27 @@
 List of documented issues that should be addressed
 
 ## Bugs
-(none currently)
+- Undo doesn't seem to work right. Hold down right click -> paint for a bit -> ctrl z -> not everything goes away
+- Substack selection interactions in the sidebar still aren't exactly right (vis-a-vis the checkboxes, mainly)
+    - Checkboxes don't actually work correctly (need to highlight them in order for the button to work)
 
 ## Small Improvements
-- Better dev setup for Claude (outline file locations, how to run/test)
+- S key doesn't always work on main window (need to click on the window first before can do S)
+- App icon
+- Other UI polish
 
-## Features
+## Pre-release Checklist
+- [ ] Fix remaining bugs above
+- [ ] Test on variety of image sets (macro, portrait, landscape)
+- [ ] README for end users (installation, usage)
+- [ ] Package for distribution (pyinstaller or similar)
 
-### Substack Workflow (from VISION.md)
+## Things to look into
+- Does this work out of the box for non-macro shots? E.g. portrait shots
 
-Stack a subset of frames and use the result as a brush source. This is the "killer feature" for fixing problem areas where the full stack produces artifacts.
-
-**Use case:** Full stack has ghosting/mush in one area because frames 3-5 have motion blur. User:
-1. Selects frames 1, 2, 6, 7 (excluding bad ones)
-2. Stacks just those frames → "substack"
-3. Uses substack as brush source to paint over the problem area in main result
-
-**Implementation thoughts:**
-- UI: Multi-select in sidebar (Ctrl+click or checkboxes)
-- "Stack Selected" button creates a substack
-- Substacks appear in source selector alongside original frames
-- Could store multiple substacks per session
-- Substacks are ephemeral (not saved to disk unless explicitly exported)
-
-**Questions to resolve:**
-- How to visually distinguish substacks from source frames in the list?
-- Should substacks use same algorithm settings as main stack, or be configurable?
-- Memory implications of holding multiple stacked results?
+## Completed ✓
+- [x] Alignment for brush painting (source frames and substacks now align to result coordinates)
+- [x] Undo/redo for brush strokes
+- [x] Substack workflow (create, select, paint from)
+- [x] LRU cache for images
+- [x] Complex Daubechies wavelet stacking

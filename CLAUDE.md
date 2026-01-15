@@ -29,10 +29,13 @@ focal/
 
 ## Current State
 
-- **Stacking**: Two algorithms available (Laplacian pyramid, Complex Daubechies wavelet)
-- **UI**: Side-by-side source/result panels with zoom/pan
-- **Retouching**: Basic pixel brush (copies from source to result)
-- **Flash compare**: Hold S to see source overlaid on result
+- **Stacking**: Two algorithms (Laplacian pyramid, Complex Daubechies wavelet with ECC alignment)
+- **UI**: Side-by-side source/result panels with synchronized zoom/pan
+- **Retouching**: Feathered brush with alignment-aware coordinate mapping
+- **Substacks**: Stack subsets of frames, use as aligned paint sources
+- **Undo/Redo**: Full stroke-level undo/redo for brush edits
+- **Flash compare**: Hold S to see current paint source overlaid on result
+- **Caching**: LRU cache for source images and substacks
 
 ## Key Patterns
 
@@ -53,10 +56,10 @@ focal/
 
 ## Development Priorities
 
-1. **Undo/redo** - Critical for usable retouching
-2. **Substack workflow** - Stack subset of frames, use as paint source
-3. **Detail brush** - Adaptive blending instead of raw pixel copy
-4. **Performance** - Large image handling (50MP+)
+1. **Bug fixes** - Undo edge cases, checkbox selection quirks (see docs/TODO.md)
+2. **UI polish** - Focus handling for S key, app icon, general refinement
+3. **Release prep** - End-user README, packaging for distribution
+4. **Performance** - Large image handling (50MP+), lazy alignment for substacks
 
 ## Testing
 
