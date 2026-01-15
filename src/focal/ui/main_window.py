@@ -4,10 +4,10 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QProgressBar, QFileDialog, QSplitter, QMessageBox,
-    QLabel, QFrame, QSlider, QComboBox,
+    QLabel, QFrame, QSlider, QComboBox, QApplication,
 )
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, QEvent
 import cv2
 import numpy as np
 
@@ -89,6 +89,10 @@ class MainWindow(QMainWindow):
 
         self._setup_ui()
         self._setup_shortcuts()
+
+        # Install event filter for global S key handling (flash compare)
+        # This ensures S works regardless of which widget has focus
+        QApplication.instance().installEventFilter(self)
 
     def _setup_ui(self):
         central = QWidget()
@@ -409,16 +413,27 @@ class MainWindow(QMainWindow):
 
             cv2.imwrite(path, self.edited_result)
 
+    def eventFilter(self, obj, event):
+        """Global event filter for S key flash compare (works regardless of focus)."""
+        if event.type() == QEvent.KeyPress:
+            if event.key() == Qt.Key_S and not event.isAutoRepeat():
+                if self.result_image is not None and self.current_paint_source is not None:
+                    self._flash_active = True
+                    paint_source = self._get_paint_source_array()
+                    if paint_source is not None:
+                        self.result_viewer.load_array(paint_source, preserve_zoom=True)
+                    return True  # Consume the event
+        elif event.type() == QEvent.KeyRelease:
+            if event.key() == Qt.Key_S and not event.isAutoRepeat():
+                if self._flash_active and self.edited_result is not None:
+                    self._flash_active = False
+                    self.result_viewer.load_array(self.edited_result, preserve_zoom=True)
+                    return True  # Consume the event
+        return super().eventFilter(obj, event)
+
     def keyPressEvent(self, event):
-        """Handle key press - S for flash compare, Ctrl+/- for zoom."""
-        if event.key() == Qt.Key_S and not event.isAutoRepeat():
-            if self.result_image is not None and self.current_paint_source is not None:
-                self._flash_active = True
-                # Show current paint source (frame or substack) in result panel
-                paint_source = self._get_paint_source_array()
-                if paint_source is not None:
-                    self.result_viewer.load_array(paint_source, preserve_zoom=True)
-        elif event.modifiers() == Qt.ControlModifier:
+        """Handle key press - Ctrl+/- for zoom."""
+        if event.modifiers() == Qt.ControlModifier:
             if event.key() in (Qt.Key_Plus, Qt.Key_Equal):
                 # Ctrl++ or Ctrl+= (= is on same key as +)
                 self.source_viewer.zoom_in()
@@ -431,15 +446,6 @@ class MainWindow(QMainWindow):
                 # Ctrl+0 - reset zoom
                 self._reset_zoom()
         super().keyPressEvent(event)
-
-    def keyReleaseEvent(self, event):
-        """Handle key release - restore result view."""
-        if event.key() == Qt.Key_S and not event.isAutoRepeat():
-            if self._flash_active and self.edited_result is not None:
-                self._flash_active = False
-                # Restore result view, preserving zoom
-                self.result_viewer.load_array(self.edited_result, preserve_zoom=True)
-        super().keyReleaseEvent(event)
 
     def _toggle_brush_mode(self, checked: bool):
         """Toggle brush painting mode."""
