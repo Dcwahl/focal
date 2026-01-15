@@ -618,8 +618,8 @@ class MainWindow(QMainWindow):
             y_start, y_end, x_start, x_end = bounds
             redo_pixels[(x, y)] = (bounds, self.edited_result[y_start:y_end, x_start:x_end].copy())
 
-        # Restore original pixels
-        for (x, y), (bounds, orig) in stroke.original_pixels.items():
+        # Restore original pixels in reverse order to handle overlapping brush regions
+        for (x, y), (bounds, orig) in reversed(list(stroke.original_pixels.items())):
             y_start, y_end, x_start, x_end = bounds
             self.edited_result[y_start:y_end, x_start:x_end] = orig
 

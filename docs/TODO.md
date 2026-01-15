@@ -1,9 +1,6 @@
 List of documented issues that should be addressed
 
 ## Bugs
-- Undo doesn't seem to work right. Hold down right click -> paint for a bit -> ctrl z -> not everything goes away
-- Substack selection interactions in the sidebar still aren't exactly right (vis-a-vis the checkboxes, mainly)
-    - Checkboxes don't actually work correctly (need to highlight them in order for the button to work)
 
 ## Small Improvements
 - S key doesn't always work on main window (need to click on the window first before can do S)

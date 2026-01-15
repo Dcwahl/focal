@@ -28,7 +28,8 @@ class ImageListItem(QWidget):
         layout.addWidget(self.label, stretch=1)
 
     def _on_checkbox_changed(self, state: int):
-        self.checkbox_changed.emit(self.index, state == Qt.Checked)
+        # Use isChecked() instead of state == Qt.Checked; Qt6 enum comparison is unreliable
+        self.checkbox_changed.emit(self.index, self.checkbox.isChecked())
 
     def is_checked(self) -> bool:
         return self.checkbox.isChecked()
@@ -63,9 +64,9 @@ class ImageList(QListWidget):
 
         for i, img in enumerate(self.images):
             item = QListWidgetItem()
-            item.setSizeHint(self._create_item_widget(i, img.name).sizeHint())
             self.addItem(item)
             widget = self._create_item_widget(i, img.name)
+            item.setSizeHint(widget.sizeHint())
             self.setItemWidget(item, widget)
 
         if self.images:
