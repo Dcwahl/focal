@@ -56,3 +56,5 @@ Thumbs.db
 *.png
 *.bmp
 !tests/fixtures/*
+!assets/icons/*
+assets/icon-concepts/*

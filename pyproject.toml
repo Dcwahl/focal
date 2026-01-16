@@ -32,5 +32,7 @@ pythonpath = ["src"]
 
 [dependency-groups]
 dev = [
+    "pyinstaller>=6.18.0",
+    "pyobjc-framework-cocoa>=12.1",
     "pytest>=9.0.2",
 ]
