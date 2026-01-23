@@ -26,11 +26,13 @@ class FocusStacker:
         num_levels: int | None = None,
         kernel_size: int = 5,
         consistency: int = 2,
+        skip_alignment: bool = False,
     ):
         self.algorithm = algorithm
         self.num_levels = num_levels
         self.kernel_size = kernel_size
         self.consistency = consistency  # For complex_wavelet denoising (0-2)
+        self.skip_alignment = skip_alignment  # Skip ECC alignment in wavelet pipeline
         # Per-frame alignment transforms from last stack (frame_index -> 2x3 matrix)
         # Transform maps source frame to reference frame coordinate space
         self.last_transforms: dict[int, np.ndarray] = {}
@@ -75,7 +77,37 @@ class FocusStacker:
                 raise ValueError(f"Could not load image: {path}")
             images.append(img)
             if progress_callback:
-                progress_callback(int((i + 1) / len(image_paths) * 30))
+                progress_callback(int((i + 1) / len(image_paths) * 15))
+
+        # Clear previous transforms
+        self.last_transforms.clear()
+
+        # Optionally align images
+        if not self.skip_alignment:
+            ref_idx = len(images) // 2
+            ref_gray = cv2.cvtColor(images[ref_idx], cv2.COLOR_BGR2GRAY)
+
+            aligned_images = []
+            for i, img in enumerate(images):
+                if i == ref_idx:
+                    aligned_images.append(img)
+                    self.last_transforms[i] = np.eye(2, 3, dtype=np.float32)
+                else:
+                    src_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    aligned, transform = align_image(
+                        ref_gray, images[ref_idx], src_gray, img, return_transform=True
+                    )
+                    aligned_images.append(aligned)
+                    self.last_transforms[i] = transform
+                if progress_callback:
+                    progress_callback(15 + int((i + 1) / len(images) * 15))
+            images = aligned_images
+        else:
+            # No alignment - store identity transforms
+            for i in range(len(images)):
+                self.last_transforms[i] = np.eye(2, 3, dtype=np.float32)
+            if progress_callback:
+                progress_callback(30)
 
         # Convert to float32
         float_images = [img.astype(np.float32) for img in images]
@@ -180,7 +212,7 @@ class FocusStacker:
         if progress_callback:
             progress_callback(20)
 
-        # Align images to reference
+        # Align images to reference (or skip if skip_alignment is set)
         ref_gray = grayscales[ref_idx]
         ref_color = expanded_images[ref_idx]
 
@@ -190,22 +222,31 @@ class FocusStacker:
         # Clear previous transforms and store new ones
         self.last_transforms.clear()
 
-        for i, (gray, color) in enumerate(zip(grayscales, expanded_images)):
-            if i == ref_idx:
-                aligned_colors.append(color)
-                aligned_grays.append(gray)
-                # Reference frame has identity transform
+        if self.skip_alignment:
+            # Skip alignment - use images as-is with identity transforms
+            aligned_colors = expanded_images
+            aligned_grays = grayscales
+            for i in range(len(grayscales)):
                 self.last_transforms[i] = np.eye(2, 3, dtype=np.float32)
-            else:
-                aligned_color, transform = align_image(
-                    ref_gray, ref_color, gray, color, return_transform=True
-                )
-                aligned_gray = to_grayscale(aligned_color, pca_weights)
-                aligned_colors.append(aligned_color)
-                aligned_grays.append(aligned_gray)
-                self.last_transforms[i] = transform
             if progress_callback:
-                progress_callback(20 + int((i + 1) / len(grayscales) * 20))
+                progress_callback(40)
+        else:
+            for i, (gray, color) in enumerate(zip(grayscales, expanded_images)):
+                if i == ref_idx:
+                    aligned_colors.append(color)
+                    aligned_grays.append(gray)
+                    # Reference frame has identity transform
+                    self.last_transforms[i] = np.eye(2, 3, dtype=np.float32)
+                else:
+                    aligned_color, transform = align_image(
+                        ref_gray, ref_color, gray, color, return_transform=True
+                    )
+                    aligned_gray = to_grayscale(aligned_color, pca_weights)
+                    aligned_colors.append(aligned_color)
+                    aligned_grays.append(aligned_gray)
+                    self.last_transforms[i] = transform
+                if progress_callback:
+                    progress_callback(20 + int((i + 1) / len(grayscales) * 20))
 
         # Decompose each aligned grayscale image
         wavelets = []

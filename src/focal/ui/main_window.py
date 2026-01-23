@@ -4,7 +4,7 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QProgressBar, QFileDialog, QSplitter, QMessageBox,
-    QLabel, QFrame, QSlider, QComboBox, QApplication,
+    QLabel, QFrame, QSlider, QComboBox, QApplication, QCheckBox,
 )
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtCore import Qt, QThread, Signal, QEvent
@@ -63,7 +63,8 @@ class MainWindow(QMainWindow):
         self.result_image: np.ndarray | None = None
         self.edited_result: np.ndarray | None = None  # Result with brush edits applied
         self._cache = ImageCache()  # LRU cache for source images
-        self.stacker = FocusStacker()
+        # Default: Laplacian without alignment
+        self.stacker = FocusStacker(algorithm=StackAlgorithm.LAPLACIAN, skip_alignment=True)
         self.worker: StackWorker | None = None
         self.current_source_index: int = 0
         self._flash_active: bool = False
@@ -114,6 +115,13 @@ class MainWindow(QMainWindow):
         self.algo_combo.setToolTip("Laplacian: faster, good for most cases\nComplex Wavelet: better edge handling, slower")
         self.algo_combo.currentIndexChanged.connect(self._on_algorithm_changed)
         top_bar.addWidget(self.algo_combo)
+
+        # Alignment checkbox
+        self.align_checkbox = QCheckBox("Align")
+        self.align_checkbox.setToolTip("ECC alignment for handheld shots\n(slower, may introduce artifacts on tripod shots)")
+        self.align_checkbox.setChecked(False)  # Default off for Laplacian
+        self.align_checkbox.stateChanged.connect(self._on_align_changed)
+        top_bar.addWidget(self.align_checkbox)
 
         top_bar.addStretch()
 
@@ -343,7 +351,22 @@ class MainWindow(QMainWindow):
     def _on_algorithm_changed(self, index: int):
         """Handle algorithm selection change."""
         algorithm = self.algo_combo.currentData()
-        self.stacker = FocusStacker(algorithm=algorithm)
+        # Update align checkbox default based on algorithm
+        # Block signals to avoid triggering _on_align_changed
+        self.align_checkbox.blockSignals(True)
+        self.align_checkbox.setChecked(algorithm == StackAlgorithm.COMPLEX_WAVELET)
+        self.align_checkbox.blockSignals(False)
+        self._update_stacker()
+
+    def _on_align_changed(self, state: int):
+        """Handle alignment checkbox change."""
+        self._update_stacker()
+
+    def _update_stacker(self):
+        """Update stacker with current algorithm and alignment settings."""
+        algorithm = self.algo_combo.currentData()
+        skip_alignment = not self.align_checkbox.isChecked()
+        self.stacker = FocusStacker(algorithm=algorithm, skip_alignment=skip_alignment)
 
     def _run_stack(self):
         if not self.images:

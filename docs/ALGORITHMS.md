@@ -8,7 +8,7 @@ Focal currently supports two focus stacking algorithms with different trade-offs
 |---------|-------------------|---------------------------|
 | Speed | Fast | Slower (more processing steps) |
 | Quality | Good | Better (especially fine detail) |
-| Alignment | No | Yes (ECC-based) |
+| Alignment | Optional (default: off) | Optional (default: on) |
 | Grayscale | Simple BGR2GRAY | PCA-weighted (preserves variance) |
 | Color output | Direct (works on color) | Reassigned from grayscale |
 | Best for | Tripod shots, quick preview | Handheld, final output |
@@ -26,13 +26,14 @@ A fast, simple algorithm that works directly on color images.
 6. Reconstruct from blended Laplacian pyramid
 
 ### Characteristics
-- **No alignment**: Assumes images are already registered (tripod use)
+- **Optional alignment**: ECC alignment available but off by default for speed
 - **Works on color**: No grayscale conversion, preserves original colors
 - **Fast**: Minimal preprocessing, efficient pyramid operations
 
 ### When to Use
 - Quick preview of stack quality
-- Tripod-mounted shots with no camera movement
+- Tripod-mounted shots (alignment off for speed)
+- Handheld shots (enable alignment via checkbox or `--align`)
 - When speed matters more than ultimate quality
 
 ---

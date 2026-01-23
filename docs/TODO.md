@@ -3,17 +3,19 @@ List of documented issues that should be addressed
 ## Bugs
 
 ## Small Improvements
+- Drag-and-drop folder/files onto window to load images
 - App icon - add rounded corners / transparency for proper macOS icon mask
 - Other UI polish
 - maybe do this if do website; https://wisp.place/
 - ~~Create DMG installer with drag-to-Applications background~~ done, see Building section
 - Windows build (PyInstaller should work, need to test on Windows machine, create .ico icon)
 - Homebrew formula for easier Mac distribution
+- Permit workflow where can load source images and also load result image (in case want to circle back and do more retouching, or import result from different tool). Might require some thinking vis-a-vis alignment
 
 ## Pre-release Checklist
 - [x] Fix remaining bugs above
 - [ ] Test on variety of image sets (macro, portrait, landscape)
-- [ ] README for end users (installation, usage)
+- [x] README for end users (installation, usage)
 - [x] Package for distribution (pyinstaller) - see Building section below
 
 ## Things to look into
@@ -71,6 +73,18 @@ create-dmg \
   "dist/Focal.app"
 ```
 This creates a ~121MB DMG with the standard drag-to-Applications layout.
+
+### Create a GitHub Release
+```bash
+# Create release and upload dmg in one command
+gh release create v0.1.0 dist/Focal-0.1.0-macOS.dmg --title "v0.1.0" --notes "Initial release"
+```
+
+Or via web UI:
+1. Go to repo → Releases → "Create a new release"
+2. Create a tag (e.g., `v0.1.0`)
+3. Drag `.dmg` into "Attach binaries by dropping them here" area (at the bottom, NOT the description box)
+4. Publish
 
 ### Notes
 - The app is unsigned, so users will need to right-click → Open → "Open Anyway" on first launch

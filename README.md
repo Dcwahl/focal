@@ -10,8 +10,10 @@ Focus stacking application for macro and micro photography.
 
 | Algorithm | Speed | Quality | Alignment | Best For |
 |-----------|-------|---------|-----------|----------|
-| Laplacian Pyramid | Fast | Good | None | Tripod shots, quick previews |
-| Complex Daubechies Wavelet | Slower | Better | ECC-based | Handheld, final output |
+| Laplacian Pyramid | Fast | Good | Optional | Tripod shots, quick previews |
+| Complex Daubechies Wavelet | Slower | Better | Optional | Handheld, final output |
+
+Both algorithms support optional ECC-based alignment. Defaults: Laplacian off (for speed), Wavelet on (for handheld shots). Toggle via the "Align" checkbox in the UI or `--align`/`--no-align` CLI flags.
 
 ### Source-Frame Retouching
 
@@ -61,7 +63,7 @@ uv run focal
 
 ## Usage
 
-1. **Open** — Click Open or drag a folder of images onto the window
+1. **Open** — Click Open and select a folder of images
 2. **Stack** — Select an algorithm and click Stack
 3. **Retouch** — Select a source frame from the sidebar, then paint on the result to fix artifacts
 4. **Save** — Export as TIFF or JPEG

@@ -248,6 +248,7 @@ def get_sq_absval(complex_arr: np.ndarray) -> np.ndarray:
 def merge_wavelets(
     wavelets: list[np.ndarray],
     consistency: int = 2,
+    magnitude_threshold: float = 0.0,
 ) -> np.ndarray:
     """
     Merge multiple wavelet images by selecting highest magnitude coefficients.
@@ -255,6 +256,9 @@ def merge_wavelets(
     Args:
         wavelets: List of wavelet coefficient arrays (H, W, 2)
         consistency: Denoising level 0-2
+        magnitude_threshold: Minimum squared magnitude to allow frame switching.
+            Below this threshold, reference frame (first) is used. Prevents
+            noisy selection in low-contrast regions.
 
     Returns:
         Merged wavelet coefficients
@@ -268,7 +272,8 @@ def merge_wavelets(
     # Select maximum magnitude wavelet at each position
     for i, wavelet in enumerate(wavelets[1:], 1):
         absval = get_sq_absval(wavelet)
-        mask = absval > max_absval
+        # Only switch frames if magnitude is above threshold AND greater than current max
+        mask = (absval > max_absval) & (absval > magnitude_threshold)
 
         result[mask] = wavelet[mask]
         depth_map[mask] = i

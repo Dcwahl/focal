@@ -17,7 +17,7 @@ Key implementation details:
 - `stacker.py` stores per-frame transforms in `last_transforms` during stacking
 - `main_window.py` computes substack-to-result alignment after substack creation via `_compute_substack_alignment()`
 - `_apply_brush_stroke()` uses `invert_transform()` to map result coordinates → source coordinates
-- Laplacian algorithm doesn't do alignment, so falls back to same-coordinate sampling
+- Both algorithms now support alignment; when disabled, identity transforms are stored for same-coordinate sampling
 
 ## Why Substacks
 
