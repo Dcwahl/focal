@@ -154,11 +154,13 @@ def _reassign_colors_fast(
             target = merged_gray[y, x]
 
             # Find closest match
+            # Note: Must use np.int64 to avoid unsigned overflow in Numba
+            # (uint8 subtraction wraps around instead of going negative)
             best_idx = 0
-            best_error = abs(int(gray_values[y, x, 0]) - int(target))
+            best_error = abs(np.int64(gray_values[y, x, 0]) - np.int64(target))
 
             for i in range(1, n_imgs):
-                error = abs(int(gray_values[y, x, i]) - int(target))
+                error = abs(np.int64(gray_values[y, x, i]) - np.int64(target))
                 if error < best_error:
                     best_error = error
                     best_idx = i

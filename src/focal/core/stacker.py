@@ -1,5 +1,6 @@
 """Focus stacking algorithms: Laplacian pyramid and Complex wavelet fusion."""
 
+import gc
 from enum import Enum
 from pathlib import Path
 from typing import Callable
@@ -9,7 +10,7 @@ import numpy as np
 from focal.core import complex_wavelet
 from focal.core.align import align_image
 from focal.core.grayscale import compute_pca_weights, to_grayscale
-from focal.core.reassign import build_color_map, reassign_colors
+from focal.core.reassign import build_color_map_fast, reassign_colors_fast
 
 
 class StackAlgorithm(Enum):
@@ -248,16 +249,35 @@ class FocusStacker:
                 if progress_callback:
                     progress_callback(20 + int((i + 1) / len(grayscales) * 20))
 
-        # Decompose each aligned grayscale image
-        wavelets = []
+            # Alignment created new arrays - delete originals
+            del images, expanded_images, grayscales
+            gc.collect()
+
+        # Decompose and merge wavelets incrementally (O(1) memory instead of O(N))
+        # This avoids storing all N decompositions simultaneously
+        merged_wavelet = None
+        max_absval = None
+
         for i, gray in enumerate(aligned_grays):
             wavelet = complex_wavelet.decompose(gray.astype(np.float32), levels)
-            wavelets.append(wavelet)
+
+            if merged_wavelet is None:
+                # First image - initialize result
+                merged_wavelet = wavelet
+                max_absval = complex_wavelet.get_sq_absval(wavelet)
+            else:
+                # Merge this wavelet into result and discard
+                complex_wavelet.merge_wavelet_incremental(
+                    merged_wavelet, max_absval, wavelet,
+                    magnitude_threshold=0.0,
+                )
+                del wavelet  # Free memory immediately
+
             if progress_callback:
                 progress_callback(40 + int((i + 1) / len(aligned_grays) * 20))
 
-        # Merge wavelets
-        merged_wavelet = complex_wavelet.merge_wavelets(wavelets, consistency=self.consistency)
+        del max_absval  # No longer needed
+        gc.collect()  # Reclaim memory before next phase
 
         if progress_callback:
             progress_callback(65)
@@ -269,13 +289,17 @@ class FocusStacker:
         if progress_callback:
             progress_callback(70)
 
-        # Reassign colors using color map
-        color_map = build_color_map(aligned_grays, aligned_colors)
+        # Reassign colors using fast Numba implementation
+        gray_values, colors = build_color_map_fast(aligned_grays, aligned_colors)
+
+        # Free aligned images - they're now stacked in gray_values/colors
+        del aligned_grays, aligned_colors, merged_wavelet
+        gc.collect()
 
         if progress_callback:
             progress_callback(85)
 
-        result = reassign_colors(merged_gray, color_map)
+        result = reassign_colors_fast(merged_gray, gray_values, colors)
 
         if progress_callback:
             progress_callback(95)

@@ -245,6 +245,32 @@ def get_sq_absval(complex_arr: np.ndarray) -> np.ndarray:
     return complex_arr[:, :, 0] ** 2 + complex_arr[:, :, 1] ** 2
 
 
+def merge_wavelet_incremental(
+    result: np.ndarray,
+    max_absval: np.ndarray,
+    new_wavelet: np.ndarray,
+    magnitude_threshold: float = 0.0,
+) -> None:
+    """
+    Merge a new wavelet into the result, selecting higher magnitude coefficients.
+
+    Modifies result and max_absval in place. This is the memory-efficient
+    alternative to merge_wavelets() - instead of storing all N wavelets,
+    we merge incrementally as we decompose each image.
+
+    Args:
+        result: Current merged wavelet coefficients (H, W, 2), modified in place
+        max_absval: Current max squared magnitude at each position (H, W), modified in place
+        new_wavelet: New wavelet coefficients to merge (H, W, 2)
+        magnitude_threshold: Minimum squared magnitude to allow switching.
+            Below this threshold, current result is kept.
+    """
+    absval = get_sq_absval(new_wavelet)
+    mask = (absval > max_absval) & (absval > magnitude_threshold)
+    result[mask] = new_wavelet[mask]
+    np.maximum(max_absval, absval, out=max_absval)
+
+
 def merge_wavelets(
     wavelets: list[np.ndarray],
     consistency: int = 2,
