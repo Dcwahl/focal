@@ -387,11 +387,7 @@ class MainWindow(QMainWindow):
 
         # Own the worker's configuration and transforms independently of UI
         # setting changes and substack computations while it is running.
-        worker_stacker = FocusStacker(
-            algorithm=self.stacker.algorithm, num_levels=self.stacker.num_levels,
-            kernel_size=self.stacker.kernel_size, consistency=self.stacker.consistency,
-            skip_alignment=self.stacker.skip_alignment,
-        )
+        worker_stacker = self.stacker.copy()
         self.worker = StackWorker(worker_stacker, self.images.copy())
         self.worker.progress.connect(self._on_stack_progress)
         self.worker.finished.connect(self._on_stack_finished)

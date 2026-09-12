@@ -27,13 +27,15 @@ def run_stack(
     algorithm: StackAlgorithm,
     output_path: Path,
     skip_alignment: bool = False,
+    focus_power: float = 1.0,
 ) -> float:
     """
     Run focus stacking and save result.
 
     Returns elapsed time in seconds.
     """
-    stacker = FocusStacker(algorithm=algorithm, skip_alignment=skip_alignment)
+    stacker = FocusStacker(algorithm=algorithm, skip_alignment=skip_alignment,
+                           focus_power=focus_power)
 
     start = time.perf_counter()
     result = stacker.stack(image_paths)
@@ -97,6 +99,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Disable ECC alignment",
     )
+    stack_parser.add_argument(
+        "--focus-power",
+        type=float,
+        default=1.0,
+        help="How decisively the sharpest frame wins a pixel, laplacian only "
+             "(1.0 = proportional blend, the default; 4.0 recovers markedly more "
+             "detail on deep stacks)",
+    )
 
     args = parser.parse_args(argv)
 
@@ -152,7 +162,9 @@ def cmd_stack(args: argparse.Namespace) -> int:
             align_status = "no-align" if skip_align else "align"
             print(f"Running {algo_name} ({align_status})...")
             try:
-                elapsed = run_stack(image_paths, algo_enum, out_file, skip_alignment=skip_align)
+                elapsed = run_stack(image_paths, algo_enum, out_file,
+                                    skip_alignment=skip_align,
+                                    focus_power=args.focus_power)
                 print(f"  Saved: {out_file}")
                 print(f"  Time: {elapsed:.2f}s")
             except Exception as e:
@@ -169,7 +181,9 @@ def cmd_stack(args: argparse.Namespace) -> int:
         align_status = "no-align" if skip_align else "align"
         print(f"Running {args.algorithm} ({align_status})...")
         try:
-            elapsed = run_stack(image_paths, algo_enum, output_path, skip_alignment=skip_align)
+            elapsed = run_stack(image_paths, algo_enum, output_path,
+                                skip_alignment=skip_align,
+                                focus_power=args.focus_power)
             print(f"Saved: {output_path}")
             print(f"Time: {elapsed:.2f}s")
         except Exception as e:

@@ -28,12 +28,21 @@ class FocusStacker:
         kernel_size: int = 5,
         consistency: int = 2,
         skip_alignment: bool = False,
+        focus_power: float = 1.0,
     ):
         self.algorithm = algorithm
         self.num_levels = num_levels
         self.kernel_size = kernel_size
         self.consistency = consistency  # For complex_wavelet denoising (0-2)
         self.skip_alignment = skip_alignment  # Skip ECC alignment in wavelet pipeline
+        if focus_power < 1.0:
+            raise ValueError(f"focus_power must be >= 1.0, got {focus_power}")
+        # How decisively the sharpest frame wins a pixel. At 1.0 each frame's weight is
+        # its share of the total focus measure, which on a 30-frame stack gives the
+        # sharpest frame as little as 8% of the weight and lets 29 blurrier frames
+        # supply the rest. Raising it normalises by the per-pixel maximum first, so
+        # frames that are clearly less sharp fall away. See docs/investigations.
+        self.focus_power = focus_power
         # Per-frame alignment transforms from last stack (frame_index -> 2x3 matrix)
         # Transform maps source frame to reference frame coordinate space
         self.last_transforms: dict[int, np.ndarray] = {}
@@ -47,7 +56,20 @@ class FocusStacker:
         belong here so callers pick them up without changing their cache keys.
         """
         return (self.algorithm.value, self.num_levels, self.kernel_size,
-                self.consistency, self.skip_alignment)
+                self.consistency, self.skip_alignment, self.focus_power)
+
+    def copy(self) -> "FocusStacker":
+        """An independent stacker with the same settings.
+
+        Callers that need configuration frozen against later UI changes - the stack
+        worker - must use this rather than re-listing fields, or a newly added setting
+        silently fails to reach the copy.
+        """
+        return FocusStacker(
+            algorithm=self.algorithm, num_levels=self.num_levels,
+            kernel_size=self.kernel_size, consistency=self.consistency,
+            skip_alignment=self.skip_alignment, focus_power=self.focus_power,
+        )
 
     def stack(
         self,
@@ -147,7 +169,15 @@ class FocusStacker:
                 self._compute_focus_measure(gauss_gray[level])
                 for gauss_gray in gaussian_pyramids_gray
             ]
-            weights = self._compute_weights(focus_measures)
+            # The coarsest level is the base image: it carries overall brightness, not
+            # detail. Choosing decisively there picks between frames that differ in
+            # exposure rather than in focus, which surfaces as coarse colour patches
+            # wherever the frames disagree - measured on a real stack, the background's
+            # mean luma spans 29.8..101.7 and a power of 4 tripled its colour drift.
+            # Detail lives in the finer bands, so only those get the exponent.
+            weights = self._compute_weights(
+                focus_measures, decisive=level < num_levels - 1
+            )
 
             blended = np.zeros_like(laplacian_pyramids[0][level])
             for i, lap_pyr in enumerate(laplacian_pyramids):
@@ -370,9 +400,16 @@ class FocusStacker:
         return np.maximum(variance, 0).astype(np.float32)
 
     def _compute_weights(
-        self, focus_measures: list[np.ndarray]
+        self, focus_measures: list[np.ndarray], decisive: bool = True
     ) -> list[np.ndarray]:
         stacked = np.stack(focus_measures, axis=0)
+        if decisive and self.focus_power != 1.0:
+            # Rescale so the sharpest frame at each pixel is 1.0 before applying the
+            # exponent; without it the exponent would just amplify absolute contrast
+            # and starve low-contrast areas that are nonetheless correctly focused.
+            maximum = np.max(stacked, axis=0, keepdims=True)
+            np.divide(stacked, maximum, out=stacked, where=maximum > 0)
+            np.power(stacked, self.focus_power, out=stacked)
         total = np.sum(stacked, axis=0, keepdims=True)
         # With no focus evidence, preserve the average instead of making the
         # image black. This also preserves the coarsest pyramid's DC component.

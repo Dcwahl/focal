@@ -274,7 +274,7 @@ No ground truth exists, so results are scored against a per-pixel **focus envelo
   user's own two stacks. **p4 must NOT ship as an unconditional default**: on stack 1's
   moving background it more than doubles colour blotching (lab_drift 9.96 -> 22.51),
   reproducing the earlier warning. Detail gain and background damage come from the same
-  mechanism. Next experiment is a confidence-gated exponent, not a fixed one.
+  mechanism. **Resolved 2026-09-12, but not by confidence gating** - see below.
 - **Wavelet's flat-region noise (~1.7x source) is real**; the stronger "invents contrast
   on 23% of pixels" claim was metric-inflated and was retracted (0.074 under Sobel).
 - **Helicon is the balance to target**: high recovery with almost no invented contrast.
@@ -287,6 +287,54 @@ No ground truth exists, so results are scored against a per-pixel **focus envelo
 Two claims in the first draft were falsified by the verification pass and are struck
 through in the report: "the failure worsens with stack depth" and "shipped Laplacian
 barely beats not stacking". Read the verification section before quoting any number.
+
+## Decisive exponent now ships (September 12, 2026)
+
+`FocusStacker(focus_power=...)`, default `1.0`, `--focus-power` on the CLI, not in the
+UI. Full method in `docs/investigations/CONFIDENCE_GATE_2026-09-12.md`.
+
+**Confidence gating was built and falsified, not skipped.** On stack 1's background the
+gated exponent moved lab_drift only 22.51 -> 20.52 against p1's 9.96. The reason is
+measurable: that background sits at the **43rd percentile** of peak focus measure, its
+peak/mean ratio (2.57) is indistinguishable from genuinely focused regions (2.52, 2.71),
+and its winning frame is *more* spatially coherent than theirs. No focus-confidence
+statistic separates it, because weak focus evidence was never the cause.
+
+**The cause is exposure disagreement between frames.** That region's mean luma spans
+29.8..101.7 across the 10 frames and essentially all of its cross-frame variation
+survives a sigma-12 low-pass (31.04 of 31.13). A decisive exponent there chooses between
+frames that differ in brightness, not focus.
+
+**The fix is one pyramid level.** Brightness lives in the coarsest Laplacian level (the
+base image); detail lives in the finer bands. Weighting the base proportionally at any
+exponent gives, on stack 1: sobel recovery 0.788 (p4 uniform: 0.790, p1: 0.416) with
+lab_drift 10.02 (p4 uniform: 22.51, p1: 9.96). Exempting two or three coarse levels adds
+nothing, which confirms the whole regression lived in the base.
+
+Cost on the 6-scene dataset is **zero**: `laplacian_p4_c1` matches `laplacian_p4` to
+three decimals on every scene (mean 0.802 / 0.002 / 0.607). It is free there because
+those scenes are tripod-shot under constant light and have no exposure disagreement -
+which is why the dataset alone could never have surfaced this.
+
+| method | recovery | halo | flat_excess |
+|---|---|---|---|
+| laplacian (p1, default) | 0.346 | 0.000 | 0.315 |
+| focus_power=4 | 0.802 | 0.002 | 0.607 |
+| focus_power=8 | 0.925 | 0.006 | 0.944 |
+| helicon_focus (reference) | 0.884 | 0.004 | 1.223 |
+
+Caveats worth carrying:
+- **Default stays 1.0.** This work makes 4 safe to choose; it does not establish that a
+  photographer wants it. Changing the default is a product call on output users accept.
+- **A second, separate failure mode is real and unfixed.** In textureless regions the
+  ranking genuinely is noise, and level gating does not help (GT MAE 1.20 at p4,
+  unchanged); confidence gating does (1.09). That is the argument for defaulting any
+  recommendation to 4 rather than 8, which costs 1.64 there.
+- `FocusStacker.copy()` now builds the stack worker's stacker. The old field-by-field
+  rebuild in `_run_stack` would have silently dropped `focus_power` - same bug class as
+  the substack cache key. Its test compares `fusion_fingerprint`, not a field list.
+- Laplacian memory is untouched and still the binding constraint for native 30-frame
+  runs (~28 GiB projected vs 25 GiB available).
 
 Nothing in production changed. New files: `docs/investigations/benchmark_dataset.py`,
 `benchmark_metrics.py`, `benchmark_crops.py`, `depth_gt_control.py`, `blind_compare.py`,

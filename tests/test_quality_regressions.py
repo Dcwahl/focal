@@ -172,3 +172,75 @@ def test_stack_completion_uses_worker_transforms_after_settings_change():
     )
     MainWindow._on_stack_finished(state, np.zeros((8, 8, 3), dtype=np.uint8))
     np.testing.assert_array_equal(state._frame_transforms[0], transform)
+
+
+def _two_frame_split_focus(rng):
+    """Two frames of one textured scene, each sharp on the half the other blurs."""
+    sharp = rng.integers(0, 256, (256, 256, 3), dtype=np.uint8)
+    left, right = sharp.copy(), sharp.copy()
+    left[:, 128:] = cv2.GaussianBlur(sharp[:, 128:], (0, 0), 4)
+    right[:, :128] = cv2.GaussianBlur(sharp[:, :128], (0, 0), 4)
+    return sharp, [left, right]
+
+
+def _detail(image):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    return float(np.abs(cv2.Laplacian(gray, cv2.CV_32F)).mean())
+
+
+def stack_power(tmp_path, images, power):
+    paths = []
+    for i, image in enumerate(images):
+        path = tmp_path / f'{i}.png'
+        assert cv2.imwrite(str(path), image)
+        paths.append(path)
+    return FocusStacker(skip_alignment=True, focus_power=power).stack(paths)
+
+
+def test_focus_power_default_is_unweighted(tmp_path):
+    """focus_power=1.0 must stay bit-identical to the proportional blend."""
+    _, frames = _two_frame_split_focus(np.random.default_rng(3))
+    np.testing.assert_array_equal(stack_power(tmp_path, frames, 1.0),
+                                  stack_arrays(tmp_path, frames))
+
+
+def test_focus_power_recovers_more_detail(tmp_path):
+    """A higher exponent must let the sharp frame win, not average it away."""
+    sharp, frames = _two_frame_split_focus(np.random.default_rng(4))
+    p1 = _detail(stack_power(tmp_path, frames, 1.0))
+    p4 = _detail(stack_power(tmp_path, frames, 4.0))
+    assert p1 < p4 <= _detail(sharp) * 1.05
+
+
+def test_focus_power_keeps_base_brightness_when_frames_disagree(tmp_path):
+    """The exponent must not pick between frames that differ only in exposure.
+
+    This is the regression a uniform exponent caused on a real stack: where every frame
+    is defocused the sharpest-frame ranking is arbitrary, so committing to a winner
+    stamped that frame's brightness onto the result in patches. Exempting the coarsest
+    pyramid level - the base image - keeps brightness averaged at any exponent.
+    """
+    rng = np.random.default_rng(5)
+    base = np.full((256, 256, 3), 60, np.uint8)
+    base[:, :128] = rng.integers(0, 256, (256, 128, 3), dtype=np.uint8)  # detail on one side
+    frames = []
+    for offset in (-40, 0, 40):
+        frames.append(np.clip(base.astype(np.int16) + offset, 0, 255).astype(np.uint8))
+    flat = (slice(None), slice(160, 256))
+    means = [stack_power(tmp_path, frames, p)[flat].mean() for p in (1.0, 4.0, 8.0)]
+    assert max(means) - min(means) < 2.0, f'exponent shifted flat-region brightness: {means}'
+
+
+def test_stacker_copy_carries_every_pixel_affecting_setting():
+    """A copy must be indistinguishable from its source to the cache.
+
+    The stack worker takes a copy so UI changes mid-run cannot alter its configuration.
+    When that copy was built by re-listing fields, a newly added setting silently failed
+    to reach it; comparing fingerprints ties the copy to the same definition of identity
+    the cache uses, so a new setting cannot be missed by one and not the other.
+    """
+    stacker = FocusStacker(num_levels=4, kernel_size=7, consistency=1,
+                           skip_alignment=True, focus_power=4.0)
+    clone = stacker.copy()
+    assert clone is not stacker
+    assert clone.fusion_fingerprint == stacker.fusion_fingerprint

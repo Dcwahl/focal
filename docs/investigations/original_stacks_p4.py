@@ -20,9 +20,24 @@ SOURCES = {
     'laplacian_p2': 'weight_experiment/p2_s0.png',
     'laplacian_p4': 'weight_experiment/p4_s0.png',
     'complex_wavelet': 'native_results/complex_wavelet.png',
+    'gate4_pct10': 'weight_experiment/gate4_pct10.png',
+    'gate4_pct10_b4': 'weight_experiment/gate4_pct10_b4.png',
+    'gate4_pct25_b4': 'weight_experiment/gate4_pct25_b4.png',
+    'gate8_pct10_b4': 'weight_experiment/gate8_pct10_b4.png',
+    'lvl4_c1': 'weight_experiment/lvl4_c1.png',
+    'lvl4_c2': 'weight_experiment/lvl4_c2.png',
+    'lvl4_c3': 'weight_experiment/lvl4_c3.png',
+    'lvl8_c2': 'weight_experiment/lvl8_c2.png',
+    'prod_p4': 'weight_experiment/prod_p4.png',
+    'prod_p8': 'weight_experiment/prod_p8.png',
 }
 LABELS = {'laplacian': 'p1 (shipped)', 'laplacian_p2': 'p2',
-          'laplacian_p4': 'p4', 'complex_wavelet': 'Complex wavelet'}
+          'laplacian_p4': 'p4', 'complex_wavelet': 'Complex wavelet',
+          'gate4_pct10': 'gate p4 pct10', 'gate4_pct10_b4': 'gate p4 pct10 b4',
+          'gate4_pct25_b4': 'gate p4 pct25 b4', 'gate8_pct10_b4': 'gate p8 pct10 b4',
+          'lvl4_c1': 'p4 coarse1=p1', 'lvl4_c2': 'p4 coarse2=p1',
+          'lvl4_c3': 'p4 coarse3=p1', 'lvl8_c2': 'p8 coarse2=p1',
+          'prod_p4': 'SHIP focus_power=4', 'prod_p8': 'SHIP focus_power=8'}
 
 
 def sharp_lap(bgr):

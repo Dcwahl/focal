@@ -42,7 +42,7 @@ WEIGHTED = Path('docs/investigations/laplacian_weight_experiment.py')
 
 
 def parse_weighted(name):
-    """'laplacian_p2' / 'laplacian_p4_s1' -> (power, smoothing), else None.
+    """'laplacian_p2' / 'laplacian_p4_s1' / 'laplacian_p4_c1' -> (power, smoothing, coarse).
 
     These route to WeightedStacker in laplacian_weight_experiment.py rather than
     production FocusStacker, so experimental weighting is measured by the same
@@ -51,11 +51,14 @@ def parse_weighted(name):
     if not name.startswith('laplacian_p'):
         return None
     rest = name[len('laplacian_p'):]
-    smoothing = 0.0
+    smoothing, coarse = 0.0, 0
     if '_s' in rest:
         rest, s = rest.split('_s', 1)
         smoothing = float(s)
-    return float(rest), smoothing
+    elif '_c' in rest:
+        rest, c = rest.split('_c', 1)
+        coarse = int(c)
+    return float(rest), smoothing, coarse
 
 
 def stage(scene_dir: Path, work: Path, width: int, step: int) -> Path:
@@ -124,9 +127,10 @@ def main():
             print(f'[{tag}] {algo}: {n_frames} frames', flush=True)
             weighted = parse_weighted(algo)
             if weighted:
-                power, smoothing = weighted
+                power, smoothing, coarse = weighted
                 cmd = [sys.executable, str(WEIGHTED), str(src_dir), str(dest),
-                       '--power', repr(power), '--smoothing', repr(smoothing)]
+                       '--power', repr(power), '--smoothing', repr(smoothing),
+                       '--coarse-levels', str(coarse)]
             else:
                 cmd = [sys.executable, str(FUSE), 'fuse', str(src_dir), str(dest),
                        '--algorithm', algo]
@@ -142,7 +146,8 @@ def main():
             stats = json.loads(proc.stdout.strip().splitlines()[-1])
             if weighted:
                 # normalise the weight script's 'pN_sM' artefact names and key spelling
-                src_name = f'p{weighted[0]:g}_s{weighted[1]:g}'
+                src_name = (f'p{weighted[0]:g}_c{weighted[2]}' if weighted[2]
+                            else f'p{weighted[0]:g}_s{weighted[1]:g}')
                 for ext in ('png', 'json'):
                     old = dest / f'{src_name}.{ext}'
                     if old.exists():
