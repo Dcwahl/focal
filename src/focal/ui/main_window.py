@@ -16,7 +16,7 @@ from focal.ui.image_viewer import ImageViewer
 from focal.ui.substack_list import SubstackList, Substack
 from focal.core.stacker import FocusStacker, StackAlgorithm
 from focal.core.image_cache import ImageCache, CacheKey
-from focal.core.align import compute_transform, invert_transform
+from focal.core.align import compute_transform, sample_aligned_region
 from focal.core.grayscale import compute_pca_weights, to_grayscale
 
 
@@ -86,7 +86,7 @@ class MainWindow(QMainWindow):
         # Maps frame index -> 2x3 affine transform (source -> result space)
         self._frame_transforms: dict[int, np.ndarray] = {}
         # Maps substack frame_indices tuple -> 2x3 affine transform (substack -> result space)
-        self._substack_transforms: dict[tuple[int, ...], np.ndarray] = {}
+        self._substack_transforms: dict[tuple, np.ndarray] = {}
 
         self._setup_ui()
         self._setup_shortcuts()
@@ -368,6 +368,14 @@ class MainWindow(QMainWindow):
         skip_alignment = not self.align_checkbox.isChecked()
         self.stacker = FocusStacker(algorithm=algorithm, skip_alignment=skip_alignment)
 
+    def _substack_key(self, substack: Substack) -> CacheKey:
+        """Cache key for a substack's pixels under the current stacker settings."""
+        return substack.cache_key(self.stacker.fusion_fingerprint)
+
+    def _substack_transform_key(self, substack: Substack) -> tuple:
+        """Registration is computed from the fused pixels, so it shares their identity."""
+        return (substack.frame_indices, self.stacker.fusion_fingerprint)
+
     def _run_stack(self):
         if not self.images:
             return
@@ -377,7 +385,14 @@ class MainWindow(QMainWindow):
         self.stack_btn.setEnabled(False)
         self.open_btn.setEnabled(False)
 
-        self.worker = StackWorker(self.stacker, self.images)
+        # Own the worker's configuration and transforms independently of UI
+        # setting changes and substack computations while it is running.
+        worker_stacker = FocusStacker(
+            algorithm=self.stacker.algorithm, num_levels=self.stacker.num_levels,
+            kernel_size=self.stacker.kernel_size, consistency=self.stacker.consistency,
+            skip_alignment=self.stacker.skip_alignment,
+        )
+        self.worker = StackWorker(worker_stacker, self.images.copy())
         self.worker.progress.connect(self._on_stack_progress)
         self.worker.finished.connect(self._on_stack_finished)
         self.worker.error.connect(self._on_stack_error)
@@ -396,7 +411,7 @@ class MainWindow(QMainWindow):
         self.brush_btn.setEnabled(True)
 
         # Store alignment transforms from stacker (for brush coordinate mapping)
-        self._frame_transforms = self.stacker.last_transforms.copy()
+        self._frame_transforms = self.worker.stacker.last_transforms.copy()
         self._substack_transforms.clear()
 
         # Clear undo/redo stacks for new stack result
@@ -444,7 +459,12 @@ class MainWindow(QMainWindow):
                     self._flash_active = True
                     paint_source = self._get_paint_source_array()
                     if paint_source is not None:
-                        self.result_viewer.load_array(paint_source, preserve_zoom=True)
+                        h, w = self.edited_result.shape[:2]
+                        aligned, valid = sample_aligned_region(
+                            paint_source, self._get_paint_source_transform(), (0, h, 0, w)
+                        )
+                        preview = np.where(valid[:, :, None], aligned, self.edited_result)
+                        self.result_viewer.load_array(preview, preserve_zoom=True)
                     return True  # Consume the event
         elif event.type() == QEvent.KeyRelease:
             if event.key() == Qt.Key_S and not event.isAutoRepeat():
@@ -513,106 +533,32 @@ class MainWindow(QMainWindow):
             return
 
         h, w = self.edited_result.shape[:2]
-        src_h, src_w = source.shape[:2]
-        radius = self.brush_size // 2
-
-        # Get alignment transform and compute source coordinates
-        # Transform maps source -> result, so we need inverse (result -> source)
-        transform = self._get_paint_source_transform()
-        if transform is not None:
-            inv_transform = invert_transform(transform)
-            # Transform brush center from result space to source space
-            result_pt = np.array([[img_x, img_y]], dtype=np.float32)
-            source_pt = cv2.transform(result_pt.reshape(1, -1, 2), inv_transform)
-            src_x = int(round(source_pt[0, 0, 0]))
-            src_y = int(round(source_pt[0, 0, 1]))
-        else:
-            # No transform available, use same coordinates
-            src_x, src_y = img_x, img_y
-
-        # Calculate bounds in result image coordinates (where we write)
-        y_start = max(0, img_y - radius)
-        y_end = min(h, img_y + radius + 1)
-        x_start = max(0, img_x - radius)
-        x_end = min(w, img_x + radius + 1)
-
-        # Calculate corresponding bounds in source image (where we read)
-        src_y_start = max(0, src_y - radius)
-        src_y_end = min(src_h, src_y + radius + 1)
-        src_x_start = max(0, src_x - radius)
-        src_x_end = min(src_w, src_x + radius + 1)
-
+        radius = max(1, self.brush_size // 2)
+        y_start, y_end = max(0, img_y - radius), min(h, img_y + radius + 1)
+        x_start, x_end = max(0, img_x - radius), min(w, img_x + radius + 1)
         if y_start >= y_end or x_start >= x_end:
             return
-        if src_y_start >= src_y_end or src_x_start >= src_x_end:
+
+        bounds = (y_start, y_end, x_start, x_end)
+        source_region, valid = sample_aligned_region(
+            source, self._get_paint_source_transform(), bounds
+        )
+        yy, xx = np.ogrid[y_start:y_end, x_start:x_end]
+        distance = np.hypot(xx - img_x, yy - img_y)
+        alpha = np.clip((radius - distance) / (radius * 0.4), 0, 1) * valid
+        if not np.any(alpha):
             return
+        result_region = self.edited_result[y_start:y_end, x_start:x_end]
 
-        # Create feathered circular mask with alpha falloff
-        y_coords, x_coords = np.ogrid[-radius:radius+1, -radius:radius+1]
-        dist = np.sqrt(x_coords**2 + y_coords**2)
-        # Feather: full opacity in center, fading to 0 at edge
-        # Use inner 60% as full opacity, outer 40% as falloff
-        inner_radius = radius * 0.6
-        alpha = np.clip((radius - dist) / (radius - inner_radius), 0, 1)
-
-        # Calculate corresponding bounds in mask for result region
-        mask_y_start = max(0, radius - img_y)
-        mask_y_end = alpha.shape[0] - max(0, img_y + radius + 1 - h)
-        mask_x_start = max(0, radius - img_x)
-        mask_x_end = alpha.shape[1] - max(0, img_x + radius + 1 - w)
-
-        # Calculate corresponding bounds in mask for source region
-        src_mask_y_start = max(0, radius - src_y)
-        src_mask_y_end = alpha.shape[0] - max(0, src_y + radius + 1 - src_h)
-        src_mask_x_start = max(0, radius - src_x)
-        src_mask_x_end = alpha.shape[1] - max(0, src_x + radius + 1 - src_w)
-
-        # Compute the overlap region in mask coordinates
-        overlap_y_start = max(mask_y_start, src_mask_y_start)
-        overlap_y_end = min(mask_y_end, src_mask_y_end)
-        overlap_x_start = max(mask_x_start, src_mask_x_start)
-        overlap_x_end = min(mask_x_end, src_mask_x_end)
-
-        if overlap_y_start >= overlap_y_end or overlap_x_start >= overlap_x_end:
-            return
-
-        alpha_slice = alpha[overlap_y_start:overlap_y_end, overlap_x_start:overlap_x_end]
-
-        # Convert mask overlap back to image coordinates
-        result_y_start = y_start + (overlap_y_start - mask_y_start)
-        result_y_end = result_y_start + (overlap_y_end - overlap_y_start)
-        result_x_start = x_start + (overlap_x_start - mask_x_start)
-        result_x_end = result_x_start + (overlap_x_end - overlap_x_start)
-
-        source_y_start = src_y_start + (overlap_y_start - src_mask_y_start)
-        source_y_end = source_y_start + (overlap_y_end - overlap_y_start)
-        source_x_start = src_x_start + (overlap_x_start - src_mask_x_start)
-        source_x_end = source_x_start + (overlap_x_end - overlap_x_start)
-
-        # Store original pixels for undo (only pixels we're actually changing)
         if record_undo and self._current_stroke is not None:
             key = (img_x, img_y)
             if key not in self._current_stroke.original_pixels:
-                # Store bounds and original region before modification
-                bounds = (result_y_start, result_y_end, result_x_start, result_x_end)
-                pixels = self.edited_result[
-                    result_y_start:result_y_end, result_x_start:result_x_end
-                ].copy()
-                self._current_stroke.original_pixels[key] = (bounds, pixels)
+                self._current_stroke.original_pixels[key] = (bounds, result_region.copy())
             self._current_stroke.points.append(key)
 
-        # Apply alpha-blended copy from source to result
-        for c in range(3):
-            result_region = self.edited_result[
-                result_y_start:result_y_end, result_x_start:result_x_end, c
-            ].astype(np.float32)
-            source_region = source[
-                source_y_start:source_y_end, source_x_start:source_x_end, c
-            ].astype(np.float32)
-            blended = result_region * (1 - alpha_slice) + source_region * alpha_slice
-            self.edited_result[
-                result_y_start:result_y_end, result_x_start:result_x_end, c
-            ] = blended.astype(np.uint8)
+        alpha = alpha[:, :, None]
+        blended = result_region * (1 - alpha) + source_region * alpha
+        result_region[:] = np.clip(np.rint(blended), 0, 255).astype(np.uint8)
 
     def on_brush_paint(self, img_x: int, img_y: int):
         """Called from result_viewer when painting occurs."""
@@ -739,11 +685,19 @@ class MainWindow(QMainWindow):
         """Handle substack selection from substack list."""
         if substack is not None:
             self.current_paint_source = substack
-            # Update source viewer to show first frame of substack
-            if substack.frame_indices and 0 <= substack.frame_indices[0] < len(self.images):
-                self.source_viewer.load_image(
-                    self.images[substack.frame_indices[0]], preserve_zoom=True
-                )
+            source = self._get_substack_array(substack)
+            if source is not None:
+                self.source_viewer.load_array(source, preserve_zoom=True)
+        elif isinstance(self.current_paint_source, Substack):
+            # Deleting/clearing the selected substack must stop painting from it.
+            # Frame selection already sets an integer before calling deselect().
+            index = self.current_source_index
+            self.current_paint_source = index if 0 <= index < len(self.images) else None
+            source = self._get_paint_source_array()
+            if source is not None:
+                self.source_viewer.load_array(source, preserve_zoom=True)
+            else:
+                self.source_viewer.clear()
 
     def _create_substack(self):
         """Create a substack from selected frames."""
@@ -774,7 +728,7 @@ class MainWindow(QMainWindow):
             # Cache the result
             display_name = Substack.create_display_name(frame_indices)
             substack = Substack(frame_indices=frame_indices, display_name=display_name)
-            self._cache.put(substack.cache_key, result)
+            self._cache.put(self._substack_key(substack), result)
 
             # Compute alignment from substack to main result for brush coordinate mapping
             if self.result_image is not None:
@@ -810,7 +764,7 @@ class MainWindow(QMainWindow):
 
         # Compute transform: substack -> result
         transform = compute_transform(result_gray, substack_gray)
-        self._substack_transforms[substack.frame_indices] = transform
+        self._substack_transforms[self._substack_transform_key(substack)] = transform
 
     def _get_paint_source_array(self) -> np.ndarray | None:
         """Get current paint source (frame or substack)."""
@@ -823,19 +777,22 @@ class MainWindow(QMainWindow):
     def _get_paint_source_transform(self) -> np.ndarray | None:
         """Get alignment transform for current paint source (source -> result space)."""
         if isinstance(self.current_paint_source, Substack):
-            return self._substack_transforms.get(self.current_paint_source.frame_indices)
+            return self._substack_transforms.get(
+                self._substack_transform_key(self.current_paint_source))
         elif isinstance(self.current_paint_source, int):
             return self._frame_transforms.get(self.current_paint_source)
         return None
 
     def _get_substack_array(self, substack: Substack) -> np.ndarray | None:
         """Get substack result, recomputing if evicted from cache."""
-        cached = self._cache.get(substack.cache_key)
-        if cached is not None:
-            return cached
-
-        # Recompute (blocking, ~1-2s for small substacks)
-        result = self._compute_substack(substack.frame_indices)
-        if result is not None:
-            self._cache.put(substack.cache_key, result)
+        result = self._cache.get(self._substack_key(substack))
+        if result is None:
+            result = self._compute_substack(substack.frame_indices)
+            if result is not None:
+                self._cache.put(self._substack_key(substack), result)
+        # A new main result invalidates the old substack-to-result registration,
+        # even when the substack's pixels are still cached.
+        if (result is not None and self.result_image is not None
+                and self._substack_transform_key(substack) not in self._substack_transforms):
+            self._compute_substack_alignment(substack, result)
         return result

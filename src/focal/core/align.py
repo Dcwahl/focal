@@ -1,6 +1,9 @@
 """Image alignment using OpenCV ECC algorithm."""
 import numpy as np
 import cv2
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def invert_transform(transform: np.ndarray) -> np.ndarray:
@@ -16,11 +19,37 @@ def invert_transform(transform: np.ndarray) -> np.ndarray:
     return cv2.invertAffineTransform(transform)
 
 
+def sample_aligned_region(
+    source: np.ndarray,
+    transform: np.ndarray | None,
+    bounds: tuple[int, int, int, int],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Sample a result-space rectangle and mark pixels covered by the source.
+
+    bounds is (y_start, y_end, x_start, x_end). Only the requested rectangle is
+    allocated, so brush painting does not warp an entire high-resolution image.
+    """
+    y0, y1, x0, x1 = bounds
+    if transform is None:
+        transform = np.eye(2, 3, dtype=np.float32)
+    local_transform = transform.copy()
+    local_transform[:, 2] -= (x0, y0)
+    region = cv2.warpAffine(source, local_transform, (x1 - x0, y1 - y0),
+                            flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT)
+    inverse = invert_transform(transform)
+    yy, xx = np.ogrid[y0:y1, x0:x1]
+    sx = inverse[0, 0] * xx + inverse[0, 1] * yy + inverse[0, 2]
+    sy = inverse[1, 0] * xx + inverse[1, 1] * yy + inverse[1, 2]
+    valid = (sx >= 0) & (sx <= source.shape[1] - 1) & (sy >= 0) & (sy <= source.shape[0] - 1)
+    return region, valid
+
+
 def compute_transform(
     ref_gray: np.ndarray,
     src_gray: np.ndarray,
     max_resolution: int = 2048,
     rough: bool = False,
+    initial_transform: np.ndarray | None = None,
 ) -> np.ndarray:
     """
     Compute affine transformation to align src to ref.
@@ -32,6 +61,7 @@ def compute_transform(
         src_gray: Source grayscale image to align
         max_resolution: Max resolution for alignment (downscales if larger)
         rough: If True, use fewer iterations (for initial alignment)
+        initial_transform: Source-to-reference affine estimate at full resolution.
 
     Returns:
         2x3 affine transformation matrix
@@ -47,8 +77,24 @@ def compute_transform(
         ref_scaled = ref_gray
         src_scaled = src_gray
 
-    # Initialize transformation matrix
-    warp_matrix = np.eye(2, 3, dtype=np.float32)
+    # Convert the full-resolution estimate into the actual resized coordinates,
+    # including rounding of the resized width and height.
+    initial = np.eye(3, dtype=np.float64)
+    if initial_transform is not None:
+        initial[:2] = initial_transform
+    resize = np.diag([ref_scaled.shape[1] / ref_gray.shape[1],
+                      ref_scaled.shape[0] / ref_gray.shape[0], 1.0])
+    warp_matrix = (resize @ initial @ np.linalg.inv(resize))[:2].astype(np.float32)
+    if rough and initial_transform is None:
+        # Translation initialization gives ECC a useful starting point when
+        # motion is too large for its local optimization from identity.
+        src_float = src_scaled.astype(np.float32)
+        ref_float = ref_scaled.astype(np.float32)
+        window = cv2.createHanningWindow((ref_scaled.shape[1], ref_scaled.shape[0]), cv2.CV_32F)
+        shift, response = cv2.phaseCorrelate(src_float, ref_float, window)
+        if response > 0.1 and np.isfinite(shift).all():
+            warp_matrix[:, 2] = shift
+    fallback = warp_matrix.copy()
 
     # Set termination criteria
     if rough:
@@ -68,15 +114,18 @@ def compute_transform(
             None,
             gauss_filt_size
         )
-    except cv2.error:
-        # If ECC fails, return identity
-        pass
+        if not np.isfinite(warp_matrix).all() or np.linalg.det(warp_matrix[:, :2]) <= 0:
+            logger.warning("ECC returned an invalid affine transform; keeping the initial estimate")
+            warp_matrix = fallback
+    except cv2.error as error:
+        # ECC mutates its input before raising: never return that partial solve.
+        logger.warning("ECC alignment failed; keeping the initial estimate: %s", error)
+        warp_matrix = fallback
 
-    # Scale translation back to original resolution
-    warp_matrix[0, 2] /= scale
-    warp_matrix[1, 2] /= scale
-
-    return warp_matrix
+    # Convert the refined affine transform back to full-resolution coordinates.
+    full = np.eye(3, dtype=np.float64)
+    full[:2] = warp_matrix
+    return (np.linalg.inv(resize) @ full @ resize)[:2].astype(np.float32)
 
 
 def align_image(
@@ -105,7 +154,8 @@ def align_image(
         # Rough alignment first
         transform = compute_transform(ref_gray, src_gray, max_resolution=256, rough=True)
         # Then fine alignment
-        transform = compute_transform(ref_gray, src_gray, max_resolution=2048, rough=False)
+        transform = compute_transform(ref_gray, src_gray, max_resolution=2048,
+                                      rough=False, initial_transform=transform)
 
     # Apply transform
     h, w = ref_color.shape[:2]

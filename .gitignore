@@ -49,6 +49,8 @@ htmlcov/
 Thumbs.db
 
 # Project specific
+/test_outputs/
+/test_stacks/
 *.tif
 *.tiff
 *.jpg

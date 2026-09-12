@@ -39,8 +39,15 @@ def compute_pca_weights(
     # Get first principal component direction
     weights = eigenvectors[0]
 
-    # Normalize so weights sum to 1
-    weights = weights / weights.sum()
+    # PCA directions can have opposite signs or vanish for a constant image.
+    # Such directions cannot be mapped to uint8 luminance by dividing by their
+    # sum without singularities or clipping. Fall back to standard BGR luminance.
+    total = weights.sum()
+    if not np.isfinite(weights).all() or abs(total) < 1e-6:
+        return np.array([0.114, 0.587, 0.299], dtype=np.float32)
+    weights = weights / total
+    if np.any(weights < 0):
+        return np.array([0.114, 0.587, 0.299], dtype=np.float32)
 
     return weights
 

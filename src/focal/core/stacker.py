@@ -38,6 +38,17 @@ class FocusStacker:
         # Transform maps source frame to reference frame coordinate space
         self.last_transforms: dict[int, np.ndarray] = {}
 
+    @property
+    def fusion_fingerprint(self) -> tuple:
+        """Hashable identity of every setting that changes the fused pixels.
+
+        Anything cached per-substack must be keyed on this, or changing a setting
+        serves pixels fused under the previous one. New pixel-affecting parameters
+        belong here so callers pick them up without changing their cache keys.
+        """
+        return (self.algorithm.value, self.num_levels, self.kernel_size,
+                self.consistency, self.skip_alignment)
+
     def stack(
         self,
         image_paths: list[Path],
@@ -362,6 +373,9 @@ class FocusStacker:
         self, focus_measures: list[np.ndarray]
     ) -> list[np.ndarray]:
         stacked = np.stack(focus_measures, axis=0)
-        total = np.sum(stacked, axis=0, keepdims=True) + 1e-10
-        weights = stacked / total
+        total = np.sum(stacked, axis=0, keepdims=True)
+        # With no focus evidence, preserve the average instead of making the
+        # image black. This also preserves the coarsest pyramid's DC component.
+        weights = np.full_like(stacked, 1.0 / len(focus_measures))
+        np.divide(stacked, total, out=weights, where=total > 1e-10)
         return [weights[i] for i in range(len(focus_measures))]

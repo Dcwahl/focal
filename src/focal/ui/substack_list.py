@@ -17,9 +17,13 @@ class Substack:
     frame_indices: tuple[int, ...]  # Immutable tuple for cache key
     display_name: str  # e.g., "Frames 3-7"
 
-    @property
-    def cache_key(self) -> CacheKey:
-        return CacheKey("substack", self.frame_indices)
+    def cache_key(self, fusion_fingerprint: tuple = ()) -> CacheKey:
+        """Cache identity for this substack's fused pixels.
+
+        The fingerprint of the stacker settings is part of the identity: the same
+        frames fused under a different algorithm are different pixels.
+        """
+        return CacheKey("substack", (self.frame_indices, fusion_fingerprint))
 
     @staticmethod
     def create_display_name(indices: tuple[int, ...]) -> str:

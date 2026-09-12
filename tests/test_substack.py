@@ -19,27 +19,35 @@ class TestSubstack:
         assert substack.display_name == "Frames 1-3"
 
     def test_cache_key(self):
-        """Cache key uses frame indices tuple."""
+        """Cache key carries frame indices and the stacker fingerprint."""
         substack = Substack(
             frame_indices=(3, 4, 5),
             display_name="Frames 4-6"
         )
-        key = substack.cache_key
+        key = substack.cache_key(("laplacian", None, 5, 2, False))
         assert isinstance(key, CacheKey)
         assert key.kind == "substack"
-        assert key.identifier == (3, 4, 5)
+        assert key.identifier == ((3, 4, 5), ("laplacian", None, 5, 2, False))
 
     def test_cache_key_equality(self):
-        """Same frame indices produce equal cache keys."""
+        """Same frame indices and settings produce equal cache keys."""
         s1 = Substack(frame_indices=(0, 1), display_name="A")
         s2 = Substack(frame_indices=(0, 1), display_name="B")
-        assert s1.cache_key == s2.cache_key
+        assert s1.cache_key(("laplacian",)) == s2.cache_key(("laplacian",))
 
     def test_cache_key_inequality(self):
         """Different frame indices produce different cache keys."""
         s1 = Substack(frame_indices=(0, 1), display_name="A")
         s2 = Substack(frame_indices=(1, 2), display_name="A")
-        assert s1.cache_key != s2.cache_key
+        assert s1.cache_key(("laplacian",)) != s2.cache_key(("laplacian",))
+
+    def test_cache_key_separates_settings(self):
+        """Same frames under different stacker settings are different pixels."""
+        s = Substack(frame_indices=(0, 1), display_name="A")
+        assert s.cache_key(("laplacian", None, 5, 2, False)) != \
+            s.cache_key(("complex_wavelet", None, 5, 2, False))
+        assert s.cache_key(("laplacian", None, 5, 2, False)) != \
+            s.cache_key(("laplacian", None, 5, 2, True))
 
 
 class TestSubstackDisplayName:
