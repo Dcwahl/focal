@@ -27,8 +27,11 @@ which supersedes the "select a subset" task. Read it before further quality work
 - Workspace: `/home/diegowahl/focal`
 - Branch: `fix/stacking-correctness`
 - Base commit: `42d87ed` (January 22, 2026; memory/performance improvements).
-- **All work is uncommitted.** No PR, push, merge, or deployment was performed.
-- There are tracked edits AND untracked scripts/reports/tests. Preserve all of them.
+- **Committed September 12, 2026** in two commits on this branch:
+  `24f02ec` (correctness fixes + substack cache identity, 88 tests passing) and
+  `fa1390b` (measurement harness and findings, no behaviour change).
+- **Not pushed. No PR, merge, or deployment was performed.** The branch exists
+  only locally; `git push -u origin fix/stacking-correctness` when wanted.
 - `.git` is read-only inside the ordinary sandbox; branch creation required an
   approved escalation. Workspace files and `/tmp` are writable.
 - `test_outputs/` was added to `.gitignore`. Original image extensions were already
