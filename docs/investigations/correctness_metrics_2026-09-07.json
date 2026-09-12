@@ -1,0 +1,405 @@
+{
+  "baseline_locked_numerics": {
+    "versions": {
+      "numpy": "2.2.6",
+      "opencv-python": "4.11.0.86",
+      "numba": "0.63.1",
+      "PySide6": "6.11.2"
+    },
+    "flat_laplacian": {
+      "mean": 0.0,
+      "min": 0,
+      "max": 0,
+      "mae_to_target": 128.0
+    },
+    "flat_complex_wavelet": {
+      "mean": 128.0,
+      "min": 128,
+      "max": 128,
+      "mae_to_target": 0.0
+    },
+    "identical_texture_laplacian": {
+      "mean": 127.39969889322917,
+      "min": 26,
+      "max": 228,
+      "mae_to_target": 0.0
+    },
+    "identical_texture_complex_wavelet": {
+      "mean": 127.39969889322917,
+      "min": 26,
+      "max": 228,
+      "mae_to_target": 0.0
+    },
+    "split_focus_laplacian": {
+      "mean": 126.8955790201823,
+      "min": 26,
+      "max": 227,
+      "mae_to_target": 0.6678670247395834
+    },
+    "split_focus_complex_wavelet": {
+      "mean": 127.39315795898438,
+      "min": 26,
+      "max": 228,
+      "mae_to_target": 0.47698974609375
+    },
+    "split_focus_best_source_mae": 10.663284301757812,
+    "consistency_0_vs_2_max_difference": 0,
+    "pca_opponent_colors": {
+      "weights_finite": false,
+      "gray_unique_values": [
+        0
+      ],
+      "warnings": [
+        "divide by zero encountered in divide",
+        "invalid value encountered in divide",
+        "invalid value encountered in multiply",
+        "invalid value encountered in multiply",
+        "invalid value encountered in add",
+        "invalid value encountered in cast"
+      ]
+    },
+    "brush_rotation_scale_interior_mae": 112.00308641975309,
+    "alignment_shift_3": {
+      "expected_transform": [
+        [
+          1.0,
+          -0.0,
+          -3.0
+        ],
+        [
+          -0.0,
+          1.0,
+          -1.5
+        ]
+      ],
+      "estimated_transform": [
+        [
+          0.9999985694885254,
+          -4.891731805400923e-06,
+          -3.0017101764678955
+        ],
+        [
+          -1.7679272787063383e-05,
+          0.9999846816062927,
+          -1.4862945079803467
+        ]
+      ],
+      "interior_mae_before": 14.199345191976583,
+      "interior_mae_after": 0.5375182937327824
+    },
+    "alignment_shift_20": {
+      "expected_transform": [
+        [
+          1.0,
+          -0.0,
+          -20.0
+        ],
+        [
+          -0.0,
+          1.0,
+          -10.0
+        ]
+      ],
+      "estimated_transform": [
+        [
+          1.0029178857803345,
+          -0.005346587393432856,
+          0.2051941305398941
+        ],
+        [
+          0.013193465769290924,
+          1.0194916725158691,
+          -5.4320573806762695
+        ]
+      ],
+      "interior_mae_before": 16.6284435261708,
+      "interior_mae_after": 16.676397318353995
+    },
+    "alignment_shift_60": {
+      "expected_transform": [
+        [
+          1.0,
+          -0.0,
+          -60.0
+        ],
+        [
+          -0.0,
+          1.0,
+          -30.0
+        ]
+      ],
+      "estimated_transform": [
+        [
+          1.0034725666046143,
+          0.031110845506191254,
+          -6.417299270629883
+        ],
+        [
+          0.0003850264474749565,
+          1.0143489837646484,
+          -1.8009058237075806
+        ]
+      ],
+      "interior_mae_before": 16.674064867424242,
+      "interior_mae_after": 16.80696345557851
+    }
+  },
+  "fixed_locked_numerics": {
+    "versions": {
+      "numpy": "2.2.6",
+      "opencv-python": "4.11.0.86",
+      "numba": "0.63.1",
+      "PySide6": "6.11.2"
+    },
+    "flat_laplacian": {
+      "mean": 128.0,
+      "min": 128,
+      "max": 128,
+      "mae_to_target": 0.0
+    },
+    "flat_complex_wavelet": {
+      "mean": 128.0,
+      "min": 128,
+      "max": 128,
+      "mae_to_target": 0.0
+    },
+    "identical_texture_laplacian": {
+      "mean": 127.39969889322917,
+      "min": 26,
+      "max": 228,
+      "mae_to_target": 0.0
+    },
+    "identical_texture_complex_wavelet": {
+      "mean": 127.39969889322917,
+      "min": 26,
+      "max": 228,
+      "mae_to_target": 0.0
+    },
+    "split_focus_laplacian": {
+      "mean": 126.8955790201823,
+      "min": 26,
+      "max": 227,
+      "mae_to_target": 0.6678670247395834
+    },
+    "split_focus_complex_wavelet": {
+      "mean": 127.3789774576823,
+      "min": 26,
+      "max": 228,
+      "mae_to_target": 0.6231587727864584
+    },
+    "split_focus_best_source_mae": 10.663284301757812,
+    "consistency_0_vs_2_max_difference": 0,
+    "pca_opponent_colors": {
+      "weights_finite": true,
+      "gray_unique_values": [
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        129,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        149
+      ],
+      "warnings": []
+    },
+    "brush_rotation_scale_interior_mae": 0.007716049382716049,
+    "alignment_shift_3": {
+      "expected_transform": [
+        [
+          1.0,
+          -0.0,
+          -3.0
+        ],
+        [
+          -0.0,
+          1.0,
+          -1.5
+        ]
+      ],
+      "estimated_transform": [
+        [
+          0.9999668002128601,
+          -7.894340342318173e-06,
+          -2.9964756965637207
+        ],
+        [
+          -8.073963726928923e-06,
+          0.9999532103538513,
+          -1.4885497093200684
+        ]
+      ],
+      "interior_mae_before": 14.199345191976583,
+      "interior_mae_after": 0.5375182937327824
+    },
+    "alignment_shift_20": {
+      "expected_transform": [
+        [
+          1.0,
+          -0.0,
+          -20.0
+        ],
+        [
+          -0.0,
+          1.0,
+          -10.0
+        ]
+      ],
+      "estimated_transform": [
+        [
+          0.9999680519104004,
+          -5.7261254369223025e-06,
+          -19.985239028930664
+        ],
+        [
+          -4.988787338788825e-08,
+          0.9999755620956421,
+          -9.9900484085083
+        ]
+      ],
+      "interior_mae_before": 16.6284435261708,
+      "interior_mae_after": 0.0
+    },
+    "alignment_shift_60": {
+      "expected_transform": [
+        [
+          1.0,
+          -0.0,
+          -60.0
+        ],
+        [
+          -0.0,
+          1.0,
+          -30.0
+        ]
+      ],
+      "estimated_transform": [
+        [
+          0.9999654293060303,
+          6.033825457052444e-07,
+          -59.99858093261719
+        ],
+        [
+          -3.0684409466630314e-06,
+          0.9999688863754272,
+          -29.98874282836914
+        ]
+      ],
+      "interior_mae_before": 16.674064867424242,
+      "interior_mae_after": 0.0029700413223140497
+    }
+  }
+}

@@ -1,0 +1,334 @@
+{
+  "controlled": {
+    "clean": {
+      "p1_s0": {
+        "mae": 0.6765780978732638,
+        "flat_region_mae": 0.2668888888888889
+      },
+      "p2_s0": {
+        "mae": 0.59869384765625,
+        "flat_region_mae": 0.2748888888888889
+      },
+      "p4_s0": {
+        "mae": 0.5778062608506944,
+        "flat_region_mae": 0.2688888888888889
+      },
+      "p4_s1": {
+        "mae": 0.5989312065972222,
+        "flat_region_mae": 0.266
+      }
+    },
+    "noise": {
+      "p1_s0": {
+        "mae": 3.439120822482639,
+        "flat_region_mae": 1.642111111111111
+      },
+      "p2_s0": {
+        "mae": 2.5601671006944446,
+        "flat_region_mae": 1.7594444444444444
+      },
+      "p4_s0": {
+        "mae": 2.5450642903645835,
+        "flat_region_mae": 1.963
+      },
+      "p4_s1": {
+        "mae": 2.5418904622395835,
+        "flat_region_mae": 1.8587777777777779
+      }
+    },
+    "noise_longer": {
+      "p1_s0": {
+        "mae": 2.9547593858506946,
+        "flat_region_mae": 1.1244444444444444
+      },
+      "p2_s0": {
+        "mae": 1.6194525824652777,
+        "flat_region_mae": 1.193111111111111
+      },
+      "p4_s0": {
+        "mae": 1.5811496310763888,
+        "flat_region_mae": 1.4397777777777778
+      },
+      "p4_s1": {
+        "mae": 1.5608723958333333,
+        "flat_region_mae": 1.3343333333333334
+      }
+    },
+    "residual_shift": {
+      "p1_s0": {
+        "mae": 8.47487046983507,
+        "flat_region_mae": 0.27
+      },
+      "p2_s0": {
+        "mae": 8.472103542751736,
+        "flat_region_mae": 0.2752222222222222
+      },
+      "p4_s0": {
+        "mae": 8.465311686197916,
+        "flat_region_mae": 0.2733333333333333
+      },
+      "p4_s1": {
+        "mae": 8.470801459418404,
+        "flat_region_mae": 0.2723333333333333
+      }
+    },
+    "flat": {
+      "p1_s0": {
+        "max_error": 0
+      },
+      "p2_s0": {
+        "max_error": 0
+      },
+      "p4_s0": {
+        "max_error": 0
+      },
+      "p4_s1": {
+        "max_error": 0
+      }
+    },
+    "duplicate": {
+      "p1_s0": {
+        "max_error": 1
+      },
+      "p2_s0": {
+        "max_error": 1
+      },
+      "p4_s0": {
+        "max_error": 1
+      },
+      "p4_s1": {
+        "max_error": 1
+      }
+    }
+  },
+  "crop_diagnostics": {
+    "focus_stack_test-1": {
+      "clip_front": {
+        "baseline": {
+          "detail_mae_to_selected_source": 1.3379212617874146,
+          "detail_std": 1.4669803380966187
+        },
+        "p2_s0": {
+          "detail_mae_to_selected_source": 1.4619024991989136,
+          "detail_std": 2.077162981033325
+        },
+        "p4_s0": {
+          "detail_mae_to_selected_source": 1.6639670133590698,
+          "detail_std": 2.4945735931396484
+        },
+        "p4_s1": {
+          "detail_mae_to_selected_source": 1.5913230180740356,
+          "detail_std": 2.366807460784912
+        }
+      },
+      "wire": {
+        "baseline": {
+          "detail_mae_to_selected_source": 2.3687775135040283,
+          "detail_std": 5.608996391296387
+        },
+        "p2_s0": {
+          "detail_mae_to_selected_source": 2.342940092086792,
+          "detail_std": 7.069411754608154
+        },
+        "p4_s0": {
+          "detail_mae_to_selected_source": 2.6878345012664795,
+          "detail_std": 7.682615280151367
+        },
+        "p4_s1": {
+          "detail_mae_to_selected_source": 2.486563205718994,
+          "detail_std": 7.496248722076416
+        }
+      },
+      "glasses": {
+        "baseline": {
+          "detail_mae_to_selected_source": 2.9824256896972656,
+          "detail_std": 4.663096904754639
+        },
+        "p2_s0": {
+          "detail_mae_to_selected_source": 2.9847333431243896,
+          "detail_std": 5.90665340423584
+        },
+        "p4_s0": {
+          "detail_mae_to_selected_source": 3.1682026386260986,
+          "detail_std": 6.568990707397461
+        },
+        "p4_s1": {
+          "detail_mae_to_selected_source": 3.026512384414673,
+          "detail_std": 6.368140697479248
+        }
+      },
+      "background": {
+        "baseline": {
+          "detail_mae_to_selected_source": 1.9970818758010864,
+          "detail_std": 1.4332958459854126
+        },
+        "p2_s0": {
+          "detail_mae_to_selected_source": 1.9529211521148682,
+          "detail_std": 2.221989393234253
+        },
+        "p4_s0": {
+          "detail_mae_to_selected_source": 1.9981168508529663,
+          "detail_std": 2.9181346893310547
+        },
+        "p4_s1": {
+          "detail_mae_to_selected_source": 1.9230128526687622,
+          "detail_std": 2.7090649604797363
+        }
+      }
+    },
+    "focus_stack_test-2": {
+      "face": {
+        "baseline": {
+          "detail_mae_to_selected_source": 1.2333425283432007,
+          "detail_std": 4.055795669555664
+        },
+        "p2_s0": {
+          "detail_mae_to_selected_source": 0.9882136583328247,
+          "detail_std": 4.672749996185303
+        },
+        "p4_s0": {
+          "detail_mae_to_selected_source": 0.934052050113678,
+          "detail_std": 4.924778461456299
+        },
+        "p4_s1": {
+          "detail_mae_to_selected_source": 0.9030277132987976,
+          "detail_std": 4.880375862121582
+        }
+      },
+      "buttons": {
+        "baseline": {
+          "detail_mae_to_selected_source": 1.0282094478607178,
+          "detail_std": 2.8821239471435547
+        },
+        "p2_s0": {
+          "detail_mae_to_selected_source": 1.019721508026123,
+          "detail_std": 3.3229737281799316
+        },
+        "p4_s0": {
+          "detail_mae_to_selected_source": 1.0754008293151855,
+          "detail_std": 3.5025041103363037
+        },
+        "p4_s1": {
+          "detail_mae_to_selected_source": 1.043180227279663,
+          "detail_std": 3.468210220336914
+        }
+      },
+      "left_edge": {
+        "baseline": {
+          "detail_mae_to_selected_source": 1.1411465406417847,
+          "detail_std": 2.008028984069824
+        },
+        "p2_s0": {
+          "detail_mae_to_selected_source": 1.12723970413208,
+          "detail_std": 2.4742534160614014
+        },
+        "p4_s0": {
+          "detail_mae_to_selected_source": 1.2072503566741943,
+          "detail_std": 2.747995138168335
+        },
+        "p4_s1": {
+          "detail_mae_to_selected_source": 1.1611493825912476,
+          "detail_std": 2.679605007171631
+        }
+      },
+      "hand_staff": {
+        "baseline": {
+          "detail_mae_to_selected_source": 1.2672182321548462,
+          "detail_std": 3.7714779376983643
+        },
+        "p2_s0": {
+          "detail_mae_to_selected_source": 1.1052888631820679,
+          "detail_std": 4.568171977996826
+        },
+        "p4_s0": {
+          "detail_mae_to_selected_source": 1.139883041381836,
+          "detail_std": 4.867653846740723
+        },
+        "p4_s1": {
+          "detail_mae_to_selected_source": 1.0981987714767456,
+          "detail_std": 4.801092147827148
+        }
+      }
+    }
+  },
+  "runs": [
+    {
+      "power": 2.0,
+      "smoothing": 0.0,
+      "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-1/native_aligned",
+      "frames": 10,
+      "shape": [
+        4000,
+        6000,
+        3
+      ],
+      "seconds": 14.656303504998505,
+      "peak_rss_mib": 11515.921875
+    },
+    {
+      "power": 4.0,
+      "smoothing": 0.0,
+      "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-1/native_aligned",
+      "frames": 10,
+      "shape": [
+        4000,
+        6000,
+        3
+      ],
+      "seconds": 12.449512404997222,
+      "peak_rss_mib": 11515.72265625
+    },
+    {
+      "power": 4.0,
+      "smoothing": 1.0,
+      "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-1/native_aligned",
+      "frames": 10,
+      "shape": [
+        4000,
+        6000,
+        3
+      ],
+      "seconds": 12.069889696002065,
+      "peak_rss_mib": 11607.66015625
+    },
+    {
+      "power": 2.0,
+      "smoothing": 0.0,
+      "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-2/native_aligned",
+      "frames": 8,
+      "shape": [
+        4000,
+        6000,
+        3
+      ],
+      "seconds": 7.639761550999538,
+      "peak_rss_mib": 9295.83984375
+    },
+    {
+      "power": 4.0,
+      "smoothing": 0.0,
+      "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-2/native_aligned",
+      "frames": 8,
+      "shape": [
+        4000,
+        6000,
+        3
+      ],
+      "seconds": 9.11946109100245,
+      "peak_rss_mib": 9296.015625
+    },
+    {
+      "power": 4.0,
+      "smoothing": 1.0,
+      "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-2/native_aligned",
+      "frames": 8,
+      "shape": [
+        4000,
+        6000,
+        3
+      ],
+      "seconds": 9.485629158996744,
+      "peak_rss_mib": 9387.76171875
+    }
+  ]
+}

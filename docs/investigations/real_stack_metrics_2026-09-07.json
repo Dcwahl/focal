@@ -1,0 +1,721 @@
+{
+  "date": "2026-09-07",
+  "versions": {
+    "numpy": "2.2.6",
+    "opencv-python": "4.11.0.86",
+    "numba": "0.63.1",
+    "PySide6": "6.11.2"
+  },
+  "python": "3.12.3",
+  "opencv_threads": 4,
+  "stacks": [
+    {
+      "name": "focus_stack_test-1",
+      "input_resolution": [
+        6000,
+        4000
+      ],
+      "source_files": [
+        {
+          "path": "test_stacks/focus_stack_test-1/focus_stack_20250818_162353_step_01_capt0000.jpg",
+          "sha256": "74cd89ac92d408b22b10c06f03fdd51584581e77bb9537faccf7a7184b59b3e5"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-1/focus_stack_20250818_162356_step_02_capt0001.jpg",
+          "sha256": "9f4b06367c6a67737201ccdaa27d84e7d7661d16a77f9b9f2b1afa3d8d881429"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-1/focus_stack_20250818_162358_step_03_capt0002.jpg",
+          "sha256": "344b188501209ad71d58cdd951573e1e2761cf28604b11608acb3e5dbdda4328"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-1/focus_stack_20250818_162401_step_04_capt0003.jpg",
+          "sha256": "c9ed0f420af851771748bf609c5aa3c0cefa66f83e1a4a204857a54f152ba323"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-1/focus_stack_20250818_162404_step_05_capt0004.jpg",
+          "sha256": "144033f3c62e1eb12c6134f08627b5e4cc7ed3d1c1a3b662505fcd1a7a662259"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-1/focus_stack_20250818_162406_step_06_capt0005.jpg",
+          "sha256": "51856f06b62e9ef439f16cd9aef3b9fbdcf5f08bc1a9796a18b9c590e6a5b6ed"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-1/focus_stack_20250818_162409_step_07_capt0006.jpg",
+          "sha256": "6eef943c0887d18405ba3fc20c3f591e324a8f321a94556b7eeb4ac10acf610c"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-1/focus_stack_20250818_162412_step_08_capt0007.jpg",
+          "sha256": "54c2830c42db256a2ebc00477a56ff3a285dc36d3efc79615f939d27439b6dad"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-1/focus_stack_20250818_162414_step_09_capt0008.jpg",
+          "sha256": "85f1b2efca47d68535c38eb0b0eb895c79e0c727b34ea9122adb1f2c11b69960"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-1/focus_stack_20250818_162417_step_10_capt0009.jpg",
+          "sha256": "129c7c8b11660cd87f46a0e7fd27ed185759e876f413bf6d83818c8bc004bf92"
+        }
+      ],
+      "alignment": {
+        "reference_frame": 6,
+        "shape": [
+          4000,
+          6000
+        ],
+        "frames": [
+          {
+            "frame": 1,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-1/focus_stack_20250818_162353_step_01_capt0000.jpg",
+            "transform": [
+              [
+                0.9739344120025635,
+                -0.01718318834900856,
+                97.2209701538086
+              ],
+              [
+                0.0016527037369087338,
+                0.9568303227424622,
+                83.28592681884766
+              ]
+            ],
+            "determinant": 0.9319183826446533
+          },
+          {
+            "frame": 2,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-1/focus_stack_20250818_162356_step_02_capt0001.jpg",
+            "transform": [
+              [
+                0.9789811968803406,
+                -0.01559879258275032,
+                79.74005889892578
+              ],
+              [
+                0.002264465903863311,
+                0.9629983901977539,
+                74.19923400878906
+              ]
+            ],
+            "determinant": 0.9427926540374756
+          },
+          {
+            "frame": 3,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-1/focus_stack_20250818_162358_step_03_capt0002.jpg",
+            "transform": [
+              [
+                0.9840294718742371,
+                -0.01471222098916769,
+                66.37897491455078
+              ],
+              [
+                0.002511236583814025,
+                0.9703016877174377,
+                58.05775833129883
+              ]
+            ],
+            "determinant": 0.9548423886299133
+          },
+          {
+            "frame": 4,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-1/focus_stack_20250818_162401_step_04_capt0003.jpg",
+            "transform": [
+              [
+                0.9888765215873718,
+                -0.005424017086625099,
+                35.8250732421875
+              ],
+              [
+                0.0009577263263054192,
+                0.9840283989906311,
+                35.99353790283203
+              ]
+            ],
+            "determinant": 0.9730877876281738
+          },
+          {
+            "frame": 5,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-1/focus_stack_20250818_162404_step_05_capt0004.jpg",
+            "transform": [
+              [
+                0.9944573044776917,
+                0.0019508714322000742,
+                10.294013023376465
+              ],
+              [
+                0.0006571760168299079,
+                0.9935495257377625,
+                11.706954956054688
+              ]
+            ],
+            "determinant": 0.9880412817001343
+          },
+          {
+            "frame": 6,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-1/focus_stack_20250818_162406_step_06_capt0005.jpg",
+            "transform": [
+              [
+                1.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                1.0,
+                0.0
+              ]
+            ],
+            "determinant": 1.0
+          },
+          {
+            "frame": 7,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-1/focus_stack_20250818_162409_step_07_capt0006.jpg",
+            "transform": [
+              [
+                1.0050493478775024,
+                -0.001235791016370058,
+                -11.287419319152832
+              ],
+              [
+                -0.00040828334749676287,
+                1.005466341972351,
+                -10.303693771362305
+              ]
+            ],
+            "determinant": 1.0105427503585815
+          },
+          {
+            "frame": 8,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-1/focus_stack_20250818_162412_step_08_capt0007.jpg",
+            "transform": [
+              [
+                1.0110667943954468,
+                -0.003695477731525898,
+                -22.087087631225586
+              ],
+              [
+                -0.0006983845960348845,
+                1.0100414752960205,
+                -19.142494201660156
+              ]
+            ],
+            "determinant": 1.021216869354248
+          },
+          {
+            "frame": 9,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-1/focus_stack_20250818_162414_step_09_capt0008.jpg",
+            "transform": [
+              [
+                1.0167396068572998,
+                -0.004366142209619284,
+                -35.89974594116211
+              ],
+              [
+                -0.0013791393721476197,
+                1.0152488946914673,
+                -28.754390716552734
+              ]
+            ],
+            "determinant": 1.0322377681732178
+          },
+          {
+            "frame": 10,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-1/focus_stack_20250818_162417_step_10_capt0009.jpg",
+            "transform": [
+              [
+                1.0222293138504028,
+                0.0021017957478761673,
+                -66.99418640136719
+              ],
+              [
+                -0.002289054449647665,
+                1.0207345485687256,
+                -37.15824508666992
+              ]
+            ],
+            "determinant": 1.0434296131134033
+          }
+        ],
+        "seconds": 11.697997133000172,
+        "common_coverage_fraction": 0.9319167083333333,
+        "peak_rss_mib": 657.90234375,
+        "note": "Coverage only; this does not establish registration correctness. No illumination normalization."
+      },
+      "crops": [
+        {
+          "name": "clip_front",
+          "bounds": [
+            2400,
+            2800,
+            2440,
+            2840
+          ],
+          "source_frame": 4,
+          "selection": "maximum local Laplacian variance; diagnostic, not ground truth"
+        },
+        {
+          "name": "wire",
+          "bounds": [
+            880,
+            1280,
+            3520,
+            3920
+          ],
+          "source_frame": 1,
+          "selection": "maximum local Laplacian variance; diagnostic, not ground truth"
+        },
+        {
+          "name": "glasses",
+          "bounds": [
+            1600,
+            2000,
+            1120,
+            1520
+          ],
+          "source_frame": 7,
+          "selection": "maximum local Laplacian variance; diagnostic, not ground truth"
+        },
+        {
+          "name": "background",
+          "bounds": [
+            320,
+            720,
+            1000,
+            1400
+          ],
+          "source_frame": 3,
+          "selection": "maximum local Laplacian variance; diagnostic, not ground truth"
+        }
+      ],
+      "runs": [
+        {
+          "variant": "preview_unaligned_results",
+          "algorithm": "laplacian",
+          "frames": 10,
+          "shape": [
+            1000,
+            1500,
+            3
+          ],
+          "fusion_seconds": 0.5327786870002456,
+          "peak_rss_mib": 863.859375,
+          "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-1/preview_inputs",
+          "alignment_during_fusion": false
+        },
+        {
+          "variant": "preview_unaligned_results",
+          "algorithm": "complex_wavelet",
+          "frames": 10,
+          "shape": [
+            1000,
+            1500,
+            3
+          ],
+          "fusion_seconds": 1.7892573850003828,
+          "peak_rss_mib": 428.41015625,
+          "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-1/preview_inputs",
+          "alignment_during_fusion": false
+        },
+        {
+          "variant": "preview_aligned_results",
+          "algorithm": "laplacian",
+          "frames": 10,
+          "shape": [
+            1000,
+            1500,
+            3
+          ],
+          "fusion_seconds": 0.532601576000161,
+          "peak_rss_mib": 863.5390625,
+          "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-1/preview_aligned",
+          "alignment_during_fusion": false
+        },
+        {
+          "variant": "preview_aligned_results",
+          "algorithm": "complex_wavelet",
+          "frames": 10,
+          "shape": [
+            1000,
+            1500,
+            3
+          ],
+          "fusion_seconds": 1.2958403570009978,
+          "peak_rss_mib": 416.2890625,
+          "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-1/preview_aligned",
+          "alignment_during_fusion": false
+        },
+        {
+          "variant": "native_results",
+          "algorithm": "laplacian",
+          "frames": 10,
+          "shape": [
+            4000,
+            6000,
+            3
+          ],
+          "fusion_seconds": 8.96318191300088,
+          "peak_rss_mib": 11424.515625,
+          "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-1/native_aligned",
+          "alignment_during_fusion": false
+        },
+        {
+          "variant": "native_results",
+          "algorithm": "complex_wavelet",
+          "frames": 10,
+          "shape": [
+            4000,
+            6000,
+            3
+          ],
+          "fusion_seconds": 20.210053181999683,
+          "peak_rss_mib": 3973.97265625,
+          "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-1/native_aligned",
+          "alignment_during_fusion": false
+        }
+      ]
+    },
+    {
+      "name": "focus_stack_test-2",
+      "input_resolution": [
+        6000,
+        4000
+      ],
+      "source_files": [
+        {
+          "path": "test_stacks/focus_stack_test-2/focus_stack_20250817_173158_step_01_capt0000.jpg",
+          "sha256": "ba2cb1897b1062f1c9e50a9d4379375702619bc270fe342416e169fceda4b427"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-2/focus_stack_20250817_173201_step_02_capt0001.jpg",
+          "sha256": "bfa6d4af0a55a5664471ae2d306c251d28ef2233566797675395411fbaf931dd"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-2/focus_stack_20250817_173203_step_03_capt0002.jpg",
+          "sha256": "6036f4bc0243b0b6a72085890cdc328a7a0bbcd472cf21eef01230122ceb781d"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-2/focus_stack_20250817_173206_step_04_capt0003.jpg",
+          "sha256": "e04c122706a4d42df0489c84d1fded7ec63153bc452a73642d160cbef3723a29"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-2/focus_stack_20250817_173209_step_05_capt0004.jpg",
+          "sha256": "9b5e06dd64af5f2bc3a8be344a7ca0f3db569d21d95d877b476f1e6a3393bbb1"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-2/focus_stack_20250817_173211_step_06_capt0005.jpg",
+          "sha256": "32a9b1a781a2b0cf3434ad58ef1e8e23aee37dc75181ae67a5078b8845747687"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-2/focus_stack_20250817_173214_step_07_capt0006.jpg",
+          "sha256": "a477a029939de621ec646951abbcdb3713f79d9fc8167b112269b805c103aaf9"
+        },
+        {
+          "path": "test_stacks/focus_stack_test-2/focus_stack_20250817_173216_step_08_capt0007.jpg",
+          "sha256": "8d435c9d788a27ac91f0eff7d4f829d5e74a1312c7775f18b0718349165fe8f5"
+        }
+      ],
+      "alignment": {
+        "reference_frame": 5,
+        "shape": [
+          4000,
+          6000
+        ],
+        "frames": [
+          {
+            "frame": 1,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-2/focus_stack_20250817_173158_step_01_capt0000.jpg",
+            "transform": [
+              [
+                0.9797197580337524,
+                6.23818559688516e-05,
+                58.3785514831543
+              ],
+              [
+                0.0004590682510752231,
+                0.9798457026481628,
+                42.36928176879883
+              ]
+            ],
+            "determinant": 0.9599741697311401
+          },
+          {
+            "frame": 2,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-2/focus_stack_20250817_173201_step_02_capt0001.jpg",
+            "transform": [
+              [
+                0.9841013550758362,
+                -5.317339309840463e-05,
+                45.77959060668945
+              ],
+              [
+                0.0003488575457595289,
+                0.985363245010376,
+                31.818504333496094
+              ]
+            ],
+            "determinant": 0.9696972966194153
+          },
+          {
+            "frame": 3,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-2/focus_stack_20250817_173203_step_03_capt0002.jpg",
+            "transform": [
+              [
+                0.9896474480628967,
+                -6.773720087949187e-05,
+                30.31142807006836
+              ],
+              [
+                0.0002989204367622733,
+                0.9906204342842102,
+                20.69566535949707
+              ]
+            ],
+            "determinant": 0.980364978313446
+          },
+          {
+            "frame": 4,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-2/focus_stack_20250817_173206_step_04_capt0003.jpg",
+            "transform": [
+              [
+                0.994845986366272,
+                -4.9921520258067176e-05,
+                14.418936729431152
+              ],
+              [
+                0.0002108877815771848,
+                0.9953125715255737,
+                10.39440631866455
+              ]
+            ],
+            "determinant": 0.9901826977729797
+          },
+          {
+            "frame": 5,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-2/focus_stack_20250817_173209_step_05_capt0004.jpg",
+            "transform": [
+              [
+                1.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                1.0,
+                0.0
+              ]
+            ],
+            "determinant": 1.0
+          },
+          {
+            "frame": 6,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-2/focus_stack_20250817_173211_step_06_capt0005.jpg",
+            "transform": [
+              [
+                1.0049666166305542,
+                -9.88925457932055e-05,
+                -14.089621543884277
+              ],
+              [
+                0.00015522782632615417,
+                1.0045303106307983,
+                -10.236469268798828
+              ]
+            ],
+            "determinant": 1.0095194578170776
+          },
+          {
+            "frame": 7,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-2/focus_stack_20250817_173214_step_07_capt0006.jpg",
+            "transform": [
+              [
+                1.0093302726745605,
+                -0.0005517997196875513,
+                -26.252347946166992
+              ],
+              [
+                0.0004897773033007979,
+                1.0090097188949585,
+                -20.823240280151367
+              ]
+            ],
+            "determinant": 1.0184242725372314
+          },
+          {
+            "frame": 8,
+            "path": "/home/diegowahl/focal/test_stacks/focus_stack_test-2/focus_stack_20250817_173216_step_08_capt0007.jpg",
+            "transform": [
+              [
+                1.0143460035324097,
+                -0.0012603973736986518,
+                -40.152748107910156
+              ],
+              [
+                0.0007544313557446003,
+                1.0133622884750366,
+                -30.687593460083008
+              ]
+            ],
+            "determinant": 1.0279009342193604
+          }
+        ],
+        "seconds": 8.750212716000533,
+        "common_coverage_fraction": 0.959981625,
+        "peak_rss_mib": 657.76953125,
+        "note": "Coverage only; this does not establish registration correctness. No illumination normalization."
+      },
+      "crops": [
+        {
+          "name": "face",
+          "bounds": [
+            880,
+            1280,
+            2680,
+            3080
+          ],
+          "source_frame": 4,
+          "selection": "maximum local Laplacian variance; diagnostic, not ground truth"
+        },
+        {
+          "name": "buttons",
+          "bounds": [
+            1920,
+            2320,
+            2860,
+            3260
+          ],
+          "source_frame": 3,
+          "selection": "maximum local Laplacian variance; diagnostic, not ground truth"
+        },
+        {
+          "name": "left_edge",
+          "bounds": [
+            2440,
+            2840,
+            1180,
+            1580
+          ],
+          "source_frame": 4,
+          "selection": "maximum local Laplacian variance; diagnostic, not ground truth"
+        },
+        {
+          "name": "hand_staff",
+          "bounds": [
+            2200,
+            2600,
+            4720,
+            5120
+          ],
+          "source_frame": 6,
+          "selection": "maximum local Laplacian variance; diagnostic, not ground truth"
+        }
+      ],
+      "runs": [
+        {
+          "variant": "preview_unaligned_results",
+          "algorithm": "laplacian",
+          "frames": 8,
+          "shape": [
+            1000,
+            1500,
+            3
+          ],
+          "fusion_seconds": 0.42493579600341036,
+          "peak_rss_mib": 729.0625,
+          "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-2/preview_inputs",
+          "alignment_during_fusion": false
+        },
+        {
+          "variant": "preview_unaligned_results",
+          "algorithm": "complex_wavelet",
+          "frames": 8,
+          "shape": [
+            1000,
+            1500,
+            3
+          ],
+          "fusion_seconds": 1.1012355870007013,
+          "peak_rss_mib": 384.0390625,
+          "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-2/preview_inputs",
+          "alignment_during_fusion": false
+        },
+        {
+          "variant": "preview_aligned_results",
+          "algorithm": "laplacian",
+          "frames": 8,
+          "shape": [
+            1000,
+            1500,
+            3
+          ],
+          "fusion_seconds": 0.422814412999287,
+          "peak_rss_mib": 728.890625,
+          "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-2/preview_aligned",
+          "alignment_during_fusion": false
+        },
+        {
+          "variant": "preview_aligned_results",
+          "algorithm": "complex_wavelet",
+          "frames": 8,
+          "shape": [
+            1000,
+            1500,
+            3
+          ],
+          "fusion_seconds": 1.075230508002278,
+          "peak_rss_mib": 383.703125,
+          "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-2/preview_aligned",
+          "alignment_during_fusion": false
+        },
+        {
+          "variant": "native_results",
+          "algorithm": "laplacian",
+          "frames": 8,
+          "shape": [
+            4000,
+            6000,
+            3
+          ],
+          "fusion_seconds": 7.275960341001337,
+          "peak_rss_mib": 9208.63671875,
+          "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-2/native_aligned",
+          "alignment_during_fusion": false
+        },
+        {
+          "variant": "native_results",
+          "algorithm": "complex_wavelet",
+          "frames": 8,
+          "shape": [
+            4000,
+            6000,
+            3
+          ],
+          "fusion_seconds": 16.251102501999412,
+          "peak_rss_mib": 3260.6640625,
+          "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-2/native_aligned",
+          "alignment_during_fusion": false
+        }
+      ]
+    }
+  ],
+  "gui": {
+    "frames": 8,
+    "input": "/home/diegowahl/focal/test_outputs/real_stacks/focus_stack_test-2/preview_inputs",
+    "image_shape": [
+      1000,
+      1500,
+      3
+    ],
+    "checks": [
+      "Open",
+      "Align checkbox",
+      "Stack worker",
+      "Source selection",
+      "Brush mouse event",
+      "Undo shortcut",
+      "Redo shortcut",
+      "Flash key",
+      "Save roundtrip"
+    ],
+    "mode": "Qt offscreen / QTest events; native file dialogs substituted",
+    "desktop_input_control": false
+  }
+}

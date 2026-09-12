@@ -1,0 +1,145 @@
+{
+  "versions": {
+    "numpy": "2.5.3",
+    "opencv-python": "5.0.0.93",
+    "numba": "0.67.0",
+    "PySide6": "6.11.2"
+  },
+  "flat_laplacian": {
+    "mean": 0.0,
+    "min": 0,
+    "max": 0,
+    "mae_to_target": 128.0
+  },
+  "flat_complex_wavelet": {
+    "mean": 128.0,
+    "min": 128,
+    "max": 128,
+    "mae_to_target": 0.0
+  },
+  "identical_texture_laplacian": {
+    "mean": 127.39969889322917,
+    "min": 26,
+    "max": 228,
+    "mae_to_target": 0.0
+  },
+  "identical_texture_complex_wavelet": {
+    "mean": 127.39969889322917,
+    "min": 26,
+    "max": 228,
+    "mae_to_target": 0.0
+  },
+  "split_focus_laplacian": {
+    "mean": 126.8955790201823,
+    "min": 26,
+    "max": 227,
+    "mae_to_target": 0.6678670247395834
+  },
+  "split_focus_complex_wavelet": {
+    "mean": 127.39315795898438,
+    "min": 26,
+    "max": 228,
+    "mae_to_target": 0.47698974609375
+  },
+  "split_focus_best_source_mae": 10.663284301757812,
+  "consistency_0_vs_2_max_difference": 0,
+  "pca_opponent_colors": {
+    "weights_finite": false,
+    "gray_unique_values": [
+      0
+    ],
+    "warnings": [
+      "divide by zero encountered in divide",
+      "invalid value encountered in divide",
+      "invalid value encountered in multiply",
+      "invalid value encountered in multiply",
+      "invalid value encountered in add",
+      "invalid value encountered in cast"
+    ]
+  },
+  "brush_rotation_scale_interior_mae": 112.01697530864197,
+  "alignment_shift_3": {
+    "expected_transform": [
+      [
+        1.0,
+        -0.0,
+        -3.0
+      ],
+      [
+        -0.0,
+        1.0,
+        -1.5
+      ]
+    ],
+    "estimated_transform": [
+      [
+        0.9999914169311523,
+        5.14050498168217e-07,
+        -2.9993247985839844
+      ],
+      [
+        -4.573505066218786e-06,
+        0.999990701675415,
+        -1.4974662065505981
+      ]
+    ],
+    "interior_mae_before": 14.199662642045455,
+    "interior_mae_after": 0.5148152332988981
+  },
+  "alignment_shift_20": {
+    "expected_transform": [
+      [
+        1.0,
+        -0.0,
+        -20.0
+      ],
+      [
+        -0.0,
+        1.0,
+        -10.0
+      ]
+    ],
+    "estimated_transform": [
+      [
+        1.002901554107666,
+        -0.005367646925151348,
+        0.2122395932674408
+      ],
+      [
+        0.013202314265072346,
+        1.0194921493530273,
+        -5.432178020477295
+      ]
+    ],
+    "interior_mae_before": 16.6284435261708,
+    "interior_mae_after": 16.676023372933884
+  },
+  "alignment_shift_60": {
+    "expected_transform": [
+      [
+        1.0,
+        -0.0,
+        -60.0
+      ],
+      [
+        -0.0,
+        1.0,
+        -30.0
+      ]
+    ],
+    "estimated_transform": [
+      [
+        1.0034804344177246,
+        0.03110736608505249,
+        -6.416813850402832
+      ],
+      [
+        0.0003702917601913214,
+        1.014330267906189,
+        -1.794235110282898
+      ]
+    ],
+    "interior_mae_before": 16.674064867424242,
+    "interior_mae_after": 16.807334710743802
+  }
+}
