@@ -173,3 +173,87 @@ class LevelGatedStacker(FocusStacker):
 
 if __name__ == '__main__':
     main()
+
+
+class ConfidenceGatedStacker(FocusStacker):
+    """Level gate (inherited from production) plus a confidence gate on the fine levels.
+
+    The two gates answer different questions and neither covers the other. Production's
+    level gate keeps inter-frame *brightness* disagreement out of the exponent by leaving
+    the base level proportional. This adds the gate for the other mechanism: in regions
+    where no frame has real focus evidence, the sharpest-frame ranking is noise, and a
+    decisive exponent commits to it as grain. The exponent is therefore pulled back
+    toward 1 where the peak focus measure sits near a floor estimated from the image.
+
+    `measure_blur` pools each frame's focus measure before ranking, on the grounds that
+    some of the grain is the measure being noisy per pixel rather than the choice being
+    wrong. `margin` scores confidence by how far the winner beats the runner-up instead
+    of by absolute magnitude.
+    """
+
+    def __init__(self, focus_power=4.0, floor_pct=10.0, gate_blur=0.0,
+                 measure_blur=0.0, margin=False):
+        super().__init__(skip_alignment=True, focus_power=focus_power)
+        self.floor_pct = floor_pct
+        self.gate_blur = gate_blur
+        self.measure_blur = measure_blur
+        self.margin = margin
+        self.gate_stats = []
+
+    def stack(self, *a, **kw):
+        self.gate_stats = []
+        return super().stack(*a, **kw)
+
+    def _compute_weights(self, focus_measures, decisive=True):
+        # The base level stays proportional: that is production's level gate, and the
+        # confidence gate has no business overriding it.
+        if not decisive or self.focus_power == 1.0:
+            return super()._compute_weights(focus_measures, decisive=decisive)
+
+        if self.measure_blur:
+            focus_measures = [cv2.GaussianBlur(m, (0, 0), self.measure_blur)
+                              for m in focus_measures]
+        measures = np.stack(focus_measures)
+        m_max = measures.max(axis=0)
+
+        if self.margin:
+            # How far clear is the winner? Partition rather than sort: only the
+            # runner-up matters and these arrays are large.
+            second = np.partition(measures, -2, axis=0)[-2]
+            confidence = np.divide(m_max - second, m_max,
+                                   out=np.zeros_like(m_max), where=m_max > 0)
+        else:
+            pooled = cv2.GaussianBlur(m_max, (0, 0), self.gate_blur) if self.gate_blur else m_max
+            tau = float(np.percentile(pooled, self.floor_pct))
+            confidence = pooled / (pooled + tau) if tau > 0 else np.ones_like(pooled)
+
+        exponent = 1.0 + (self.focus_power - 1.0) * confidence
+        norm = np.divide(measures, m_max, out=np.zeros_like(measures), where=m_max > 0)
+        np.power(norm, exponent, out=norm)
+        total = norm.sum(axis=0)
+        weights = np.full_like(norm, 1.0 / len(focus_measures))
+        np.divide(norm, total, out=weights, where=total > 0)
+        self.gate_stats.append(dict(mean_exponent=float(exponent.mean()),
+                                    mean_confidence=float(confidence.mean())))
+        return list(weights)
+
+
+class PooledStacker(FocusStacker):
+    """Production's exponent and level gate, with the focus measure pooled before ranking.
+
+    The gate sweep showed the confidence floor barely moves the grain while pooling moves
+    it a lot, in both the flat and the textured zones. That points at the focus measure
+    itself being noisy per pixel rather than the selection being wrong, which is a much
+    simpler thing to fix. This is the ablation: exponent + level gate + pooling, no
+    confidence gate at all.
+    """
+
+    def __init__(self, focus_power=8.0, measure_blur=4.0):
+        super().__init__(skip_alignment=True, focus_power=focus_power)
+        self.measure_blur = measure_blur
+
+    def _compute_weights(self, focus_measures, decisive=True):
+        if self.measure_blur:
+            focus_measures = [cv2.GaussianBlur(m, (0, 0), self.measure_blur)
+                              for m in focus_measures]
+        return super()._compute_weights(focus_measures, decisive=decisive)

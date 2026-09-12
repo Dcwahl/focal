@@ -19,7 +19,8 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
-from laplacian_weight_experiment import WeightedStacker, GatedStacker, LevelGatedStacker
+from laplacian_weight_experiment import (WeightedStacker, GatedStacker,
+                                         LevelGatedStacker, ConfidenceGatedStacker)
 
 SIZE = 512
 MAX_SIGMA = 6.0
@@ -74,6 +75,12 @@ def methods():
     yield 'gate8_pct10_b4', lambda: GatedStacker(8, 10, 1.0, 4)
     for pw in (4, 8, 16):
         yield f'lvl{pw}_c1', (lambda w=pw: LevelGatedStacker(w, 1))
+    for pct in (10, 25):
+        yield f'comb_pct{pct}', (lambda p=pct: ConfidenceGatedStacker(4.0, floor_pct=p))
+        yield f'comb_pct{pct}_mb2', (lambda p=pct: ConfidenceGatedStacker(4.0, floor_pct=p, measure_blur=2))
+    yield 'comb_margin', lambda: ConfidenceGatedStacker(4.0, margin=True)
+    yield 'comb_margin_mb2', lambda: ConfidenceGatedStacker(4.0, margin=True, measure_blur=2)
+    yield 'comb8_pct25_mb2', lambda: ConfidenceGatedStacker(8.0, floor_pct=25, measure_blur=2)
 
 
 def main():

@@ -30,6 +30,13 @@ SOURCES = {
     'lvl8_c2': 'weight_experiment/lvl8_c2.png',
     'prod_p4': 'weight_experiment/prod_p4.png',
     'prod_p8': 'weight_experiment/prod_p8.png',
+    'comb_pct10': 'weight_experiment/comb_pct10.png',
+    'comb_pct25': 'weight_experiment/comb_pct25.png',
+    'comb_pct10_mb2': 'weight_experiment/comb_pct10_mb2.png',
+    'comb_pct25_mb2': 'weight_experiment/comb_pct25_mb2.png',
+    'comb_margin': 'weight_experiment/comb_margin.png',
+    'comb_margin_mb2': 'weight_experiment/comb_margin_mb2.png',
+    'comb8_pct25_mb2': 'weight_experiment/comb8_pct25_mb2.png',
 }
 LABELS = {'laplacian': 'p1 (shipped)', 'laplacian_p2': 'p2',
           'laplacian_p4': 'p4', 'complex_wavelet': 'Complex wavelet',
@@ -37,7 +44,11 @@ LABELS = {'laplacian': 'p1 (shipped)', 'laplacian_p2': 'p2',
           'gate4_pct25_b4': 'gate p4 pct25 b4', 'gate8_pct10_b4': 'gate p8 pct10 b4',
           'lvl4_c1': 'p4 coarse1=p1', 'lvl4_c2': 'p4 coarse2=p1',
           'lvl4_c3': 'p4 coarse3=p1', 'lvl8_c2': 'p8 coarse2=p1',
-          'prod_p4': 'SHIP focus_power=4', 'prod_p8': 'SHIP focus_power=8'}
+          'prod_p4': 'SHIP focus_power=4', 'prod_p8': 'SHIP focus_power=8',
+          'comb_pct10': 'comb p4 pct10', 'comb_pct25': 'comb p4 pct25',
+          'comb_pct10_mb2': 'comb p4 pct10 mb2', 'comb_pct25_mb2': 'comb p4 pct25 mb2',
+          'comb_margin': 'comb p4 margin', 'comb_margin_mb2': 'comb p4 margin mb2',
+          'comb8_pct25_mb2': 'comb p8 pct25 mb2'}
 
 
 def sharp_lap(bgr):
