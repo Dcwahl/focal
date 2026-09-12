@@ -98,9 +98,14 @@ def main():
         for png in sorted(dest.glob('*.png')):
             if png.name == 'helicon_reference.png':
                 label = 'helicon_focus'
-            elif png.stem in ('laplacian', 'complex_wavelet') or png.stem.startswith('laplacian_p'):
+            elif png.stem == 'complex_wavelet' or png.stem.startswith('laplacian'):
                 label = png.stem
+            elif png.stem.startswith('crop_'):
+                continue
             else:
+                # Silently dropping an unrecognised fusion makes a variant look like it
+                # was scored and found unremarkable when it was never read at all.
+                print(f'  {scene}: ignoring unrecognised {png.name}')
                 continue
             im = load(png, args.width)
             if im.shape[:2] != envelope.shape:

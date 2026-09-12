@@ -75,6 +75,31 @@ resolution:
 
 Recovery falls below the committed fp4 (0.788) at every widened setting.
 
+## 2b. It generalises beyond the two stacks
+
+Frozen 6-scene dataset subset, 30 frames, half resolution, alignment disabled. The gate's
+two spatial parameters were tuned on the user's 24MP stacks, so this is the check that
+they do not overfit those sequences:
+
+| method | recovery | halo | flat_excess |
+|---|---|---|---|
+| laplacian (p1, shipped default) | 0.346 | 0.000 | 0.315 |
+| laplacian_p4 (committed) | 0.802 | 0.002 | 0.607 |
+| **laplacian_gate4** | 0.738 | 0.001 | **0.369** |
+| **laplacian_gate8** | **0.859** | 0.002 | **0.498** |
+| laplacian_p8_c1 (ungated) | 0.925 | 0.006 | 0.944 |
+| helicon_focus (reference) | 0.884 | 0.004 | 1.223 |
+
+`gate8` beats the committed `p4` on both axes here too (+0.057 recovery, -0.109
+flat_excess), and reaches near-Helicon detail with under half its invented background
+energy. Three independent beds - ground truth, both native real stacks, and this subset -
+agree on the ordering.
+
+A scorer bug surfaced while producing this table and is worth knowing about:
+`benchmark_metrics.py` accepted only stems matching `laplacian_p*` and dropped everything
+else with a bare `continue`. The first two gated runs were therefore not scored at all
+while appearing to have been scored and found unremarkable. It now names what it ignores.
+
 ## 3. The methodological finding
 
 **`confidence_gate_gt.py` is 512x512. Any parameter with a spatial scale that is tuned on
@@ -93,7 +118,7 @@ parameter on native-resolution real stacks, and confirm on the dataset subset.
 
 ## 4. Status
 
-Not shipped. `focus_power` and the level gate are in production and unchanged; the gate
+Not shipped, but the evidence now supports promoting it. `focus_power` and the level gate are in production and unchanged; the gate
 lives in `laplacian_weight_experiment.py` as `ConfidenceGatedStacker`. Promoting it needs
 a decision about API surface - it adds two parameters, both spatial, both tuned on two
 sequences, which is exactly the overfitting risk this document is about.

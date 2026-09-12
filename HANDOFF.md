@@ -336,6 +336,42 @@ Caveats worth carrying:
 - Laplacian memory is untouched and still the binding constraint for native 30-frame
   runs (~28 GiB projected vs 25 GiB available).
 
+## Confidence gate: validated, NOT shipped (September 12, 2026)
+
+`ConfidenceGatedStacker(focus_power=8, floor_pct=25, measure_blur=2)` in
+`laplacian_weight_experiment.py` beats the committed `focus_power=4` on detail AND grain
+at once, on all three measurement beds. Full method in
+`docs/investigations/GATE_SWEEP_2026-09-12.md`.
+
+| 6-scene dataset | recovery | halo | flat_excess |
+|---|---|---|---|
+| laplacian (shipped default) | 0.346 | 0.000 | 0.315 |
+| focus_power=4 (committed) | 0.802 | 0.002 | 0.607 |
+| **gated fp8** | **0.859** | 0.002 | **0.498** |
+| helicon_focus (reference) | 0.884 | 0.004 | 1.223 |
+
+Real stacks agree: stack 1 recovery 0.810 vs fp4's 0.788 with grain 0.793 vs 0.952;
+stack 2 0.711 vs 0.686 and 0.760 vs 0.877. Promoting it needs two new parameters, both
+spatial — that is the only reason it did not ship this round.
+
+**Three approaches were tried and failed; do not re-run them.**
+- Winner-vs-runner-up *margin* as the confidence statistic suppresses the exponent nearly
+  everywhere (GT covered 3.08 vs p1's 3.29).
+- *Pooling the focus measure without a gate* collapses detail at native resolution
+  (recovery 0.886 -> 0.641 at sigma 6) even though it looked perfect on the synthetic.
+- *Widening `kernel_size`* instead of adding a parameter does the same (0.886 -> 0.527 at
+  ks=35), also despite looking perfect on the synthetic.
+
+**Methodological rule that came out of this, and the most reusable thing here:**
+`confidence_gate_gt.py` is 512x512. It is reliable for identifying *which mechanism* is at
+play and for ranking methods with no spatial parameter. It CANNOT pick a spatial scale for
+24MP images — sigma 6 spans 1.2% of its frame and 0.1% of a 6000px frame. Tune every
+spatial parameter on native-resolution real stacks, then confirm on the dataset subset.
+
+Also fixed: `benchmark_metrics.py` accepted only stems matching `laplacian_p*` and dropped
+every other fusion with a bare `continue`, so a variant could go unscored while looking
+like it had been scored and found unremarkable. It now prints what it ignores.
+
 Nothing in production changed. New files: `docs/investigations/benchmark_dataset.py`,
 `benchmark_metrics.py`, `benchmark_crops.py`, `depth_gt_control.py`, `blind_compare.py`,
 and the report above.
